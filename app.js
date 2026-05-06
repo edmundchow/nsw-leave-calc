@@ -2,7 +2,6 @@ const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 let nswHolidays = [];
 let db;
 
-// Helper to fill dropdowns
 function populateDropdowns(prefix, startYear, endYear) {
     const dSel = document.getElementById(prefix + 'Day');
     const mSel = document.getElementById(prefix + 'Month');
@@ -13,7 +12,6 @@ function populateDropdowns(prefix, startYear, endYear) {
     for (let i = endYear; i >= startYear; i--) ySel.options.add(new Option(i, i));
 }
 
-// Convert dropdown values to Date object
 function getDropdownDate(prefix) {
     const d = document.getElementById(prefix + 'Day').value;
     const m = document.getElementById(prefix + 'Month').value;
@@ -21,7 +19,6 @@ function getDropdownDate(prefix) {
     return new Date(y, m, d);
 }
 
-// Set dropdown values from Date object
 function setDropdownDate(prefix, dateStr) {
     if (!dateStr) return;
     const date = new Date(dateStr);
@@ -48,7 +45,6 @@ const dbRequest = indexedDB.open("NSWLeaveTracker", 1);
 dbRequest.onupgradeneeded = (e) => e.target.result.createObjectStore("userData");
 dbRequest.onsuccess = (e) => {
     db = e.target.result;
-    // Init all date pickers
     const curYear = new Date().getFullYear();
     populateDropdowns('hire', 1990, curYear + 5);
     populateDropdowns('balance', 1990, curYear + 5);
@@ -125,56 +121,6 @@ function addHistoryEntry() {
     let total = 0;
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         if (document.getElementById(ids[d.getDay()]).checked && !nswHolidays.includes(d.toISOString().split('T')[0])) total += daily;
-    }
-    appendHistoryDOM({ id: Date.now(), note: document.getElementById('leaveNote').value || "Leave", amount: total });
-    saveToDB(); calculateLeave();
-}
-
-function appendHistoryDOM(h) {
-    const div = document.createElement('div');
-    div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount;
-    div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs)</span><button class="btn-del" onclick="this.parentElement.remove(); saveToDB(); calculateLeave();">Delete</button>`;
-    document.getElementById('historyList').appendChild(div);
-}
-}
-
-function addHistoryEntry() {
-    const startInput = document.getElementById('leaveStart').value;
-    const endInput = document.getElementById('leaveEnd').value;
-    if (!startInput || !endInput) return;
-    const start = new Date(startInput);
-    const end = new Date(endInput);
-    const daily = parseFloat(document.getElementById('weeklyHours').value) / 5;
-    const ids = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-    let total = 0;
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
-        if (document.getElementById(ids[d.getDay()]).checked && !nswHolidays.includes(dateStr)) total += daily;
-    }
-    appendHistoryDOM({ id: Date.now(), note: document.getElementById('leaveNote').value || "Leave", amount: total });
-    saveToDB(); calculateLeave();
-}
-
-function appendHistoryDOM(h) {
-    const div = document.createElement('div');
-    div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount;
-    div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs)</span><button class="btn-del" onclick="this.parentElement.remove(); saveToDB(); calculateLeave();">Delete</button>`;
-    document.getElementById('historyList').appendChild(div);
-}
-}
-
-function addHistoryEntry() {
-    const startInput = document.getElementById('leaveStart').value;
-    const endInput = document.getElementById('leaveEnd').value;
-    if (!startInput || !endInput) return;
-    const start = new Date(startInput);
-    const end = new Date(endInput);
-    const daily = parseFloat(document.getElementById('weeklyHours').value) / 5;
-    const ids = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-    let total = 0;
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
-        if (document.getElementById(ids[d.getDay()]).checked && !nswHolidays.includes(dateStr)) total += daily;
     }
     appendHistoryDOM({ id: Date.now(), note: document.getElementById('leaveNote').value || "Leave", amount: total });
     saveToDB(); calculateLeave();
