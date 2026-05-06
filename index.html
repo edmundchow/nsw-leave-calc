@@ -74,6 +74,12 @@
         <div id="historyList" style="margin-top:15px;"></div>
     </div>
     <script src="app.js"></script>
-    <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }</script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log("SW failed", err));
+            });
+        }
+    </script>
 </body>
 </html>
