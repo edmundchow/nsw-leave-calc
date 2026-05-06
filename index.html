@@ -9,10 +9,11 @@
         body { font-family: -apple-system, system-ui, sans-serif; padding: 20px; max-width: 600px; margin: auto; background: #f0f2f5; color: #1c1e21; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
         .input-group { margin-bottom: 15px; }
+        .section-title { font-weight: bold; color: #007bff; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; text-transform: uppercase; font-size: 0.8em; }
         label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.9em; }
         .date-row { display: flex; gap: 5px; }
-        select { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 0.9em; }
-        input[type="number"], select#calcMode { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        select { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 1em; height: 45px; }
+        input[type="number"], select#calcMode { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; height: 45px; }
         .results { background: #007bff; color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: space-around; text-align: center; }
         .result-val { font-size: 1.5em; font-weight: bold; display: block; }
         .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
@@ -20,19 +21,19 @@
         .btn-add { background: #28a745; color: white; width: 100%; padding: 12px; margin-top: 10px; }
         .btn-del { background: #ff4d4f; color: white; padding: 5px 10px; font-size: 0.8em; }
         .roster-grid { display: flex; gap: 8px; flex-wrap: wrap; }
-        .roster-grid label { display: flex; align-items: center; gap: 4px; background: #eee; padding: 5px 10px; border-radius: 20px; cursor: pointer; font-size: 0.8em; }
-        .roster-grid input { width: auto; }
-        hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
+        .roster-grid label { display: flex; align-items: center; gap: 4px; background: #eee; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85em; }
     </style>
 </head>
 <body>
     <h1>NSW Leave Tracker</h1>
+    
     <div class="results">
         <div><span class="result-val" id="resAnnual">0.00</span>Annual (Hrs)</div>
         <div><span class="result-val" id="resLSL">0.00</span>LSL (Weeks)</div>
     </div>
 
     <div class="card">
+        <div class="section-title">Employment Constants</div>
         <div class="input-group">
             <label>Initial Hire Date</label>
             <div class="date-row">
@@ -45,22 +46,25 @@
             <label>Weekly Ordinary Hours</label>
             <input type="number" id="weeklyHours" value="38" oninput="calculateLeave(); saveToDB();">
         </div>
-        <hr>
+    </div>
+
+    <div class="card">
+        <div class="section-title">Annual Leave Calculation</div>
         <div class="input-group">
-            <label>Calculation Mode</label>
+            <label>Mode</label>
             <select id="calcMode" onchange="toggleMode();">
-                <option value="startDate">Since Initial Hire Date</option>
-                <option value="knownBalance">Since Last Payslip Balance</option>
+                <option value="startDate">Continuous Since Hire Date</option>
+                <option value="knownBalance">Manual Balance Entry</option>
             </select>
         </div>
         <div id="balanceSection" style="display:none;">
-            <label>Payslip Balance Date</label>
+            <label>Balance Recorded Date</label>
             <div class="date-row" style="margin-bottom: 10px;">
                 <select id="balanceDay" onchange="calculateLeave(); saveToDB();"></select>
                 <select id="balanceMonth" onchange="calculateLeave(); saveToDB();"></select>
                 <select id="balanceYear" onchange="calculateLeave(); saveToDB();"></select>
             </div>
-            <label>Balance at that Date (Hours)</label>
+            <label>Hours Balance at that Date</label>
             <input type="number" id="startBalance" value="0" step="0.01" oninput="calculateLeave(); saveToDB();">
         </div>
     </div>
@@ -79,25 +83,47 @@
     </div>
 
     <div class="card">
-        <h3>Log Leave Taken</h3>
-        <label>Start Date</label>
+        <div class="section-title">Log Leave Taken</div>
+        <label>From</label>
         <div class="date-row" style="margin-bottom: 10px;">
             <select id="leaveStartDay"></select><select id="leaveStartMonth"></select><select id="leaveStartYear"></select>
         </div>
-        <label>End Date</label>
+        <label>To</label>
         <div class="date-row" style="margin-bottom: 10px;">
             <select id="leaveEndDay"></select><select id="leaveEndMonth"></select><select id="leaveEndYear"></select>
         </div>
-        <input type="text" id="leaveNote" placeholder="e.g. Easter Holiday" style="width:100%; padding:10px; border-radius:6px; border:1px solid #ddd; box-sizing:border-box;">
+        <input type="text" id="leaveNote" placeholder="e.g. Vacation" style="width:100%; padding:10px; border-radius:6px; border:1px solid #ddd; box-sizing:border-box;">
         <button class="btn-add" onclick="addHistoryEntry()">Add Leave Period</button>
         <div id="historyList" style="margin-top:15px;"></div>
     </div>
 
     <script src="app.js"></script>
     <script>
+        // Service Worker registration with immediate update check
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); });
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').then(reg => {
+                    // Check for updates every time the app is opened/focused
+                    reg.update();
+                    
+                    reg.onupdatefound = () => {
+                        const installingWorker = reg.installing;
+                        installingWorker.onstatechange = () => {
+                            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // New content is available; force refresh
+                                window.location.reload();
+                            }
+                        };
+                    };
+                });
+            });
         }
+        
+        // If user comes back online, trigger a calculation to refresh API data
+        window.addEventListener('online', () => {
+            console.log("Back online. Refreshing data...");
+            if (typeof fetchHolidays === "function") fetchHolidays();
+        });
     </script>
 </body>
 </html>
