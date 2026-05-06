@@ -3,161 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NSW Leave Calculator</title>
+    <title>NSW Leave Tracker</title>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#007bff">
-    <link rel="apple-touch-icon" href="https://via.placeholder.com/192">
     <style>
-        :root {
-            --primary: #007bff;
-            --success: #28a745;
-            --warning: #fd7e14;
-            --danger: #dc3545;
-            --bg: #f4f7f6;
-        }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); padding: 20px; color: #333; }
-        .card { max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        h2 { color: #2c3e50; margin-top: 0; text-align: center; border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
+        body { font-family: -apple-system, system-ui, sans-serif; padding: 20px; max-width: 600px; margin: auto; background: #f0f2f5; color: #1c1e21; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
         .input-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9em; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1em; }
-        button { width: 100%; padding: 14px; background-color: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1.1em; font-weight: bold; margin-top: 10px; transition: background 0.2s; }
-        button:hover { background-color: #0056b3; }
-        .results { margin-top: 25px; padding: 20px; border-radius: 10px; background: #f8f9fa; display: none; border: 1px solid #e9ecef; }
-        .result-item { display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
-        .result-label { font-size: 0.95em; color: #555; }
-        .result-val { font-weight: 700; color: var(--primary); font-size: 1.05em; }
-        #lslStatus { font-size: 0.85em; line-height: 1.4; margin-top: 15px; padding: 10px; border-radius: 6px; background: #fff; border-left: 4px solid #ccc; }
-        .footer { text-align: center; margin-top: 20px; font-size: 0.8em; color: #888; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.9em; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 1em; }
+        .results { background: #007bff; color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: space-around; text-align: center; }
+        .result-val { font-size: 1.5em; font-weight: bold; display: block; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+        button { cursor: pointer; border: none; border-radius: 6px; font-weight: 600; transition: opacity 0.2s; }
+        .btn-add { background: #28a745; color: white; width: 100%; padding: 12px; margin-top: 10px; }
+        .btn-del { background: #ff4d4f; color: white; padding: 5px 10px; font-size: 0.8em; }
+        .roster-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+        .roster-grid label { display: flex; align-items: center; gap: 4px; background: #eee; padding: 5px 10px; border-radius: 20px; cursor: pointer; }
+        .roster-grid input { width: auto; }
     </style>
 </head>
 <body>
-
-<div class="card">
-    <h2>NSW Leave Calc</h2>
-    
-    <div class="input-group">
-        <label>Employment Type</label>
-        <select id="employmentType" onchange="calculateLeave()">
-            <option value="permanent">Permanent (Full/Part-time)</option>
-            <option value="casual">Casual</option>
-        </select>
+    <h1>NSW Leave Tracker</h1>
+    <div class="results">
+        <div><span class="result-val" id="resAnnual">0.00</span>Annual (Hrs)</div>
+        <div><span class="result-val" id="resLSL">0.00</span>LSL (Weeks)</div>
     </div>
-
-    <div class="input-group">
-        <label>Start Date</label>
-        <input type="date" id="startDate" required onchange="calculateLeave()">
-    </div>
-
-    <div class="input-group">
-        <label>Weekly Ordinary Hours</label>
-        <input type="number" id="weeklyHours" value="38" step="0.1" oninput="calculateLeave()">
-    </div>
-
-    <div class="input-group">
-        <label>Annual Leave Taken (Hours)</label>
-        <input type="number" id="annualTaken" value="0" step="0.1" oninput="calculateLeave()">
-    </div>
-
-    <div class="input-group">
-        <label>Long Service Taken (Weeks)</label>
-        <input type="number" id="lslTaken" value="0" step="0.01" oninput="calculateLeave()">
-    </div>
-
-    <button onclick="calculateLeave()">Update Calculation</button>
-
-    <div id="results" class="results">
-        <div class="result-item">
-            <span class="result-label">Total Service:</span> 
-            <span class="result-val"><span id="resYears">0</span> years</span>
+    <div class="card">
+        <div class="input-group">
+            <label>Weekly Ordinary Hours</label>
+            <input type="number" id="weeklyHours" value="38" oninput="calculateLeave(); saveToDB();">
         </div>
-        <div class="result-item">
-            <span class="result-label">Annual Leave Balance:</span> 
-            <span class="result-val" id="resAnnual">0 hrs</span>
+        <div class="input-group">
+            <label>Working Roster</label>
+            <div class="roster-grid">
+                <label><input type="checkbox" id="sun" onchange="calculateLeave(); saveToDB();">S</label>
+                <label><input type="checkbox" id="mon" checked onchange="calculateLeave(); saveToDB();">M</label>
+                <label><input type="checkbox" id="tue" checked onchange="calculateLeave(); saveToDB();">T</label>
+                <label><input type="checkbox" id="wed" checked onchange="calculateLeave(); saveToDB();">W</label>
+                <label><input type="checkbox" id="thu" checked onchange="calculateLeave(); saveToDB();">T</label>
+                <label><input type="checkbox" id="fri" checked onchange="calculateLeave(); saveToDB();">F</label>
+                <label><input type="checkbox" id="sat" onchange="calculateLeave(); saveToDB();">S</label>
+            </div>
         </div>
-        <div class="result-item">
-            <span class="result-label">LSL Balance (NSW):</span> 
-            <span class="result-val" id="resLSL">0 weeks</span>
+        <div class="input-group">
+            <label>Mode</label>
+            <select id="calcMode" onchange="toggleMode();">
+                <option value="startDate">Since Hire Date</option>
+                <option value="knownBalance">Since Last Payslip</option>
+            </select>
         </div>
-        <div id="lslStatus"></div>
+        <div id="startSection">
+            <label>Hire Date</label>
+            <input type="date" id="startDate" onchange="calculateLeave(); saveToDB();">
+        </div>
+        <div id="balanceSection" style="display:none;">
+            <label>Payslip Date</label>
+            <input type="date" id="balanceDate" onchange="calculateLeave(); saveToDB();">
+            <label>Current Balance (Hours)</label>
+            <input type="number" id="startBalance" value="0" step="0.01" oninput="calculateLeave(); saveToDB();">
+        </div>
     </div>
-</div>
-
-<div class="footer">
-    Works Offline • Local Calculation Only • NSW LSL Act 1955 Compliance (2026)
-</div>
-
-<script>
-function calculateLeave() {
-    const startInput = document.getElementById('startDate').value;
-    if (!startInput) return;
-    
-    const start = new Date(startInput);
-    const today = new Date();
-    const isCasual = document.getElementById('employmentType').value === 'casual';
-    const weeklyHours = parseFloat(document.getElementById('weeklyHours').value) || 0;
-    const annualTaken = parseFloat(document.getElementById('annualTaken').value) || 0;
-    const lslTaken = parseFloat(document.getElementById('lslTaken').value) || 0;
-
-    const diffTime = today - start;
-    const totalDays = diffTime / (1000 * 60 * 60 * 24);
-    const totalYears = totalDays / 365.25;
-    const totalWeeks = totalDays / 7;
-
-    // 1. Annual Leave (NES - 4 weeks per year)
-    let annualBalanceHours = 0;
-    if (!isCasual) {
-        const annualAccruedHours = (totalWeeks * (4 / 52)) * weeklyHours;
-        annualBalanceHours = Math.max(0, annualAccruedHours - annualTaken);
-    }
-
-    // 2. Long Service Leave (NSW Act 1955)
-    let lslAccruedWeeks = 0;
-    let lslStatus = "";
-    let statusColor = "#666";
-
-    if (totalYears >= 10) {
-        lslAccruedWeeks = totalYears * (8.6667 / 10);
-        lslStatus = "✅ Full Entitlement: Accessible now or payable on resignation/termination.";
-        statusColor = "#28a745";
-    } else if (totalYears >= 5) {
-        lslAccruedWeeks = totalYears * 0.86667;
-        lslStatus = "⚠️ Pro-rata: Only payable if leaving due to illness, incapacity, or domestic necessity, or if terminated (not for misconduct).";
-        statusColor = "#fd7e14";
-    } else {
-        lslStatus = "⏳ No entitlement yet. (Threshold for pro-rata is 5 years).";
-    }
-
-    const currentLSL = Math.max(0, lslAccruedWeeks - lslTaken);
-
-    // Update UI
-    document.getElementById('results').style.display = 'block';
-    document.getElementById('resYears').innerText = totalYears.toFixed(2);
-    
-    const resAnnual = document.getElementById('resAnnual');
-    if (isCasual) {
-        resAnnual.innerText = "N/A (Casual)";
-        resAnnual.style.color = "#999";
-    } else {
-        resAnnual.innerText = annualBalanceHours.toFixed(2) + " hrs";
-        resAnnual.style.color = "#007bff";
-    }
-
-    document.getElementById('resLSL').innerText = currentLSL.toFixed(2) + " weeks";
-    const statusEl = document.getElementById('lslStatus');
-    statusEl.innerText = lslStatus;
-    statusEl.style.borderLeftColor = statusColor;
-}
-
-// Service Worker Registration
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('PWA Ready'))
-            .catch(err => console.log('PWA Offline failed', err));
-    });
-}
-</script>
-
+    <div class="card">
+        <h3>Log Leave Taken</h3>
+        <div class="input-group">
+            <label>Start & End Date</label>
+            <div style="display:flex; gap:10px;"><input type="date" id="leaveStart"><input type="date" id="leaveEnd"></div>
+        </div>
+        <input type="text" id="leaveNote" placeholder="e.g. Vacation">
+        <button class="btn-add" onclick="addHistoryEntry()">Add Leave Period</button>
+        <div id="historyList" style="margin-top:15px;"></div>
+    </div>
+    <script src="app.js"></script>
+    <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }</script>
 </body>
 </html>
