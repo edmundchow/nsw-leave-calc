@@ -124,3 +124,28 @@ function appendHistoryDOM(h) {
     div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs)</span><button class="btn-del" onclick="this.parentElement.remove(); saveToDB(); calculateLeave();">Delete</button>`;
     document.getElementById('historyList').appendChild(div);
 }
+}
+
+function addHistoryEntry() {
+    const startInput = document.getElementById('leaveStart').value;
+    const endInput = document.getElementById('leaveEnd').value;
+    if (!startInput || !endInput) return;
+    const start = new Date(startInput);
+    const end = new Date(endInput);
+    const daily = parseFloat(document.getElementById('weeklyHours').value) / 5;
+    const ids = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    let total = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        if (document.getElementById(ids[d.getDay()]).checked && !nswHolidays.includes(dateStr)) total += daily;
+    }
+    appendHistoryDOM({ id: Date.now(), note: document.getElementById('leaveNote').value || "Leave", amount: total });
+    saveToDB(); calculateLeave();
+}
+
+function appendHistoryDOM(h) {
+    const div = document.createElement('div');
+    div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount;
+    div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs)</span><button class="btn-del" onclick="this.parentElement.remove(); saveToDB(); calculateLeave();">Delete</button>`;
+    document.getElementById('historyList').appendChild(div);
+}
