@@ -10,17 +10,19 @@
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
         .input-group { margin-bottom: 15px; }
         label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.9em; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 1em; }
+        .date-row { display: flex; gap: 5px; }
+        select { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 0.9em; }
+        input[type="number"], select#calcMode { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
         .results { background: #007bff; color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: space-around; text-align: center; }
         .result-val { font-size: 1.5em; font-weight: bold; display: block; }
         .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        button { cursor: pointer; border: none; border-radius: 6px; font-weight: 600; transition: opacity 0.2s; }
+        button { cursor: pointer; border: none; border-radius: 6px; font-weight: 600; }
         .btn-add { background: #28a745; color: white; width: 100%; padding: 12px; margin-top: 10px; }
         .btn-del { background: #ff4d4f; color: white; padding: 5px 10px; font-size: 0.8em; }
         .roster-grid { display: flex; gap: 8px; flex-wrap: wrap; }
-        .roster-grid label { display: flex; align-items: center; gap: 4px; background: #eee; padding: 5px 10px; border-radius: 20px; cursor: pointer; }
+        .roster-grid label { display: flex; align-items: center; gap: 4px; background: #eee; padding: 5px 10px; border-radius: 20px; cursor: pointer; font-size: 0.8em; }
         .roster-grid input { width: auto; }
-        .section-title { border-bottom: 2px solid #007bff; color: #007bff; padding-bottom: 5px; margin-bottom: 15px; font-size: 1.1em; }
+        hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
     </style>
 </head>
 <body>
@@ -31,19 +33,19 @@
     </div>
 
     <div class="card">
-        <div class="section-title">Employment Constants</div>
         <div class="input-group">
             <label>Initial Hire Date</label>
-            <input type="date" id="hireDate" onchange="calculateLeave(); saveToDB();">
+            <div class="date-row">
+                <select id="hireDay" onchange="calculateLeave(); saveToDB();"></select>
+                <select id="hireMonth" onchange="calculateLeave(); saveToDB();"></select>
+                <select id="hireYear" onchange="calculateLeave(); saveToDB();"></select>
+            </div>
         </div>
         <div class="input-group">
             <label>Weekly Ordinary Hours</label>
             <input type="number" id="weeklyHours" value="38" oninput="calculateLeave(); saveToDB();">
         </div>
-    </div>
-
-    <div class="card">
-        <div class="section-title">Annual Leave Settings</div>
+        <hr>
         <div class="input-group">
             <label>Calculation Mode</label>
             <select id="calcMode" onchange="toggleMode();">
@@ -52,15 +54,19 @@
             </select>
         </div>
         <div id="balanceSection" style="display:none;">
-            <label>Payslip Date</label>
-            <input type="date" id="balanceDate" onchange="calculateLeave(); saveToDB();">
+            <label>Payslip Balance Date</label>
+            <div class="date-row" style="margin-bottom: 10px;">
+                <select id="balanceDay" onchange="calculateLeave(); saveToDB();"></select>
+                <select id="balanceMonth" onchange="calculateLeave(); saveToDB();"></select>
+                <select id="balanceYear" onchange="calculateLeave(); saveToDB();"></select>
+            </div>
             <label>Balance at that Date (Hours)</label>
             <input type="number" id="startBalance" value="0" step="0.01" oninput="calculateLeave(); saveToDB();">
         </div>
     </div>
 
     <div class="card">
-        <div class="section-title">Working Roster</div>
+        <label>Working Roster</label>
         <div class="roster-grid">
             <label><input type="checkbox" id="sun" onchange="calculateLeave(); saveToDB();">S</label>
             <label><input type="checkbox" id="mon" checked onchange="calculateLeave(); saveToDB();">M</label>
@@ -73,12 +79,16 @@
     </div>
 
     <div class="card">
-        <div class="section-title">Log Leave Taken</div>
-        <div class="input-group">
-            <label>Start & End Date</label>
-            <div style="display:flex; gap:10px;"><input type="date" id="leaveStart"><input type="date" id="leaveEnd"></div>
+        <h3>Log Leave Taken</h3>
+        <label>Start Date</label>
+        <div class="date-row" style="margin-bottom: 10px;">
+            <select id="leaveStartDay"></select><select id="leaveStartMonth"></select><select id="leaveStartYear"></select>
         </div>
-        <input type="text" id="leaveNote" placeholder="e.g. Vacation" style="margin-bottom: 10px;">
+        <label>End Date</label>
+        <div class="date-row" style="margin-bottom: 10px;">
+            <select id="leaveEndDay"></select><select id="leaveEndMonth"></select><select id="leaveEndYear"></select>
+        </div>
+        <input type="text" id="leaveNote" placeholder="e.g. Easter Holiday" style="width:100%; padding:10px; border-radius:6px; border:1px solid #ddd; box-sizing:border-box;">
         <button class="btn-add" onclick="addHistoryEntry()">Add Leave Period</button>
         <div id="historyList" style="margin-top:15px;"></div>
     </div>
@@ -86,9 +96,7 @@
     <script src="app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => console.log("SW failed", err));
-            });
+            window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); });
         }
     </script>
 </body>
