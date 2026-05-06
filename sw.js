@@ -1,15 +1,13 @@
-const CACHE_NAME = 'nsw-leave-v7'; // Increment this version to force cache bust
+const CACHE_NAME = 'nsw-leave-v8'; 
 const ASSETS = ['./', './index.html', './app.js', './manifest.json'];
 
-// On install, cache all assets
 self.addEventListener('install', (e) => {
-  self.skipWaiting(); // Force the waiting service worker to become active
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
 });
 
-// Clean up old caches
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
@@ -20,12 +18,10 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// NETWORK-FIRST STRATEGY
 self.addEventListener('fetch', (e) => {
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        // If network works, update the cache and return the response
         const resClone = res.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(e.request, resClone);
@@ -33,7 +29,6 @@ self.addEventListener('fetch', (e) => {
         return res;
       })
       .catch(() => {
-        // If network fails (offline), use the cache
         return caches.match(e.request);
       })
   );
