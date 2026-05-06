@@ -1,5 +1,34 @@
+const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 let nswHolidays = [];
 let db;
+
+// Helper to fill dropdowns
+function populateDropdowns(prefix, startYear, endYear) {
+    const dSel = document.getElementById(prefix + 'Day');
+    const mSel = document.getElementById(prefix + 'Month');
+    const ySel = document.getElementById(prefix + 'Year');
+    if (!dSel) return;
+    for (let i = 1; i <= 31; i++) dSel.options.add(new Option(i, i));
+    months.forEach((m, i) => mSel.options.add(new Option(m, i)));
+    for (let i = endYear; i >= startYear; i--) ySel.options.add(new Option(i, i));
+}
+
+// Convert dropdown values to Date object
+function getDropdownDate(prefix) {
+    const d = document.getElementById(prefix + 'Day').value;
+    const m = document.getElementById(prefix + 'Month').value;
+    const y = document.getElementById(prefix + 'Year').value;
+    return new Date(y, m, d);
+}
+
+// Set dropdown values from Date object
+function setDropdownDate(prefix, dateStr) {
+    if (!dateStr) return;
+    const date = new Date(dateStr);
+    document.getElementById(prefix + 'Day').value = date.getDate();
+    document.getElementById(prefix + 'Month').value = date.getMonth();
+    document.getElementById(prefix + 'Year').value = date.getFullYear();
+}
 
 async function fetchHolidays() {
     try {
@@ -7,98 +36,106 @@ async function fetchHolidays() {
         const response = await fetch(apiUrl);
         const data = await response.json();
         nswHolidays = data.result.records
-            .filter(record => record.Jurisdiction && record.Jurisdiction.toLowerCase() === 'nsw')
-            .map(record => {
-                const d = record.Date.toString();
-                return `${d.substring(0,4)}-${d.substring(4,6)}-${d.substring(6,8)}`;
-            });
-        calculateLeave();
-    } catch (error) {
-        nswHolidays = ["2026-01-01", "2026-01-26", "2026-04-03", "2026-04-04", "2026-04-05", "2026-04-06", "2026-04-25", "2026-04-27", "2026-06-08", "2026-10-05", "2026-12-25", "2026-12-26", "2026-12-28"];
-        calculateLeave();
+            .filter(r => r.Jurisdiction && r.Jurisdiction.toLowerCase() === 'nsw')
+            .map(r => { const d = r.Date.toString(); return `${d.substring(0,4)}-${d.substring(4,6)}-${d.substring(6,8)}`; });
+    } catch (e) {
+        nswHolidays = ["2026-01-01", "2026-01-26", "2026-04-03", "2026-12-25"];
     }
+    calculateLeave();
 }
 
 const dbRequest = indexedDB.open("NSWLeaveTracker", 1);
 dbRequest.onupgradeneeded = (e) => e.target.result.createObjectStore("userData");
-dbRequest.onsuccess = (e) => { db = e.target.result; fetchHolidays(); loadFromDB(); };
+dbRequest.onsuccess = (e) => {
+    db = e.target.result;
+    // Init all date pickers
+    const curYear = new Date().getFullYear();
+    populateDropdowns('hire', 1990, curYear + 5);
+    populateDropdowns('balance', 1990, curYear + 5);
+    populateDropdowns('leaveStart', 2024, curYear + 5);
+    populateDropdowns('leaveEnd', 2024, curYear + 5);
+    fetchHolidays();
+    loadFromDB();
+};
 
 function toggleMode() {
     const mode = document.getElementById('calcMode').value;
     document.getElementById('balanceSection').style.display = mode === 'knownBalance' ? 'block' : 'none';
-    calculateLeave();
-    saveToDB();
+    calculateLeave(); saveToDB();
 }
 
 function saveToDB() {
     if (!db) return;
     const profile = {
-        hireDate: document.getElementById('hireDate').value,
+        hireDate: getDropdownDate('hire').toISOString(),
         calcMode: document.getElementById('calcMode').value,
         weeklyHours: document.getElementById('weeklyHours').value,
-        balanceDate: document.getElementById('balanceDate').value,
+        balanceDate: getDropdownDate('balance').toISOString(),
         startBalance: document.getElementById('startBalance').value,
         roster: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map(id => document.getElementById(id).checked),
         history: Array.from(document.querySelectorAll('.history-item')).map(item => ({
             id: item.dataset.id, note: item.querySelector('.note-text').innerText, amount: parseFloat(item.dataset.amount)
         }))
     };
-    const tx = db.transaction("userData", "readwrite");
-    tx.objectStore("userData").put(profile, "profile");
+    db.transaction("userData", "readwrite").objectStore("userData").put(profile, "profile");
 }
 
 function loadFromDB() {
-    const tx = db.transaction("userData", "readonly");
-    const req = tx.objectStore("userData").get("profile");
-    req.onsuccess = () => {
-        const d = req.result; if (!d) return;
-        document.getElementById('hireDate').value = d.hireDate || '';
+    db.transaction("userData", "readonly").objectStore("userData").get("profile").onsuccess = (e) => {
+        const d = e.target.result; if (!d) return;
+        setDropdownDate('hire', d.hireDate);
+        setDropdownDate('balance', d.balanceDate);
         document.getElementById('calcMode').value = d.calcMode || 'startDate';
         document.getElementById('weeklyHours').value = d.weeklyHours || 38;
-        document.getElementById('balanceDate').value = d.balanceDate || '';
         document.getElementById('startBalance').value = d.startBalance || 0;
         const ids = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
         if (d.roster) d.roster.forEach((c, i) => document.getElementById(ids[i]).checked = c);
-        if (d.history) {
-            document.getElementById('historyList').innerHTML = '';
-            d.history.forEach(appendHistoryDOM);
-        }
+        if (d.history) { document.getElementById('historyList').innerHTML = ''; d.history.forEach(appendHistoryDOM); }
         toggleMode();
     };
 }
 
 function calculateLeave() {
     const mode = document.getElementById('calcMode').value;
-    const hireDateValue = document.getElementById('hireDate').value;
+    const hireDate = getDropdownDate('hire');
     const weeklyHours = parseFloat(document.getElementById('weeklyHours').value) || 38;
     const today = new Date();
     
+    let serviceWeeksTotal = (today - hireDate) / (1000 * 60 * 60 * 24 * 7);
     let annualAccrued = 0;
-    let totalServiceWeeks = 0;
 
-    // 1. Calculate Total Service (Always from Hire Date for LSL)
-    if (hireDateValue) {
-        const hireDate = new Date(hireDateValue);
-        totalServiceWeeks = (today - hireDate) / (1000 * 60 * 60 * 24 * 7);
-    }
-
-    // 2. Calculate Annual Accrual
-    if (mode === 'startDate' && hireDateValue) {
-        annualAccrued = totalServiceWeeks * (4 / 52) * weeklyHours;
-    } else if (mode === 'knownBalance') {
-        const bDateInput = document.getElementById('balanceDate').value;
-        if (bDateInput) {
-            const bDate = new Date(bDateInput);
-            const weeksSinceBalance = (today - bDate) / (1000 * 60 * 60 * 24 * 7);
-            annualAccrued = parseFloat(document.getElementById('startBalance').value) + (weeksSinceBalance * (4 / 52) * weeklyHours);
-        }
+    if (mode === 'startDate') {
+        annualAccrued = serviceWeeksTotal * (4 / 52) * weeklyHours;
+    } else {
+        const bDate = getDropdownDate('balance');
+        const weeksSince = (today - bDate) / (1000 * 60 * 60 * 24 * 7);
+        annualAccrued = parseFloat(document.getElementById('startBalance').value) + (weeksSince * (4 / 52) * weeklyHours);
     }
 
     const taken = Array.from(document.querySelectorAll('.history-item')).reduce((s, el) => s + parseFloat(el.dataset.amount), 0);
-    
     document.getElementById('resAnnual').innerText = Math.max(0, annualAccrued - taken).toFixed(2);
-    // NSW LSL: 8.667 weeks after 10 years (0.8667 weeks per year)
-    document.getElementById('resLSL').innerText = Math.max(0, (totalServiceWeeks / 52) * 0.8667).toFixed(3);
+    document.getElementById('resLSL').innerText = Math.max(0, (serviceWeeksTotal / 52) * 0.8667).toFixed(3);
+}
+
+function addHistoryEntry() {
+    const start = getDropdownDate('leaveStart');
+    const end = getDropdownDate('leaveEnd');
+    const daily = parseFloat(document.getElementById('weeklyHours').value) / 5;
+    const ids = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    let total = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        if (document.getElementById(ids[d.getDay()]).checked && !nswHolidays.includes(d.toISOString().split('T')[0])) total += daily;
+    }
+    appendHistoryDOM({ id: Date.now(), note: document.getElementById('leaveNote').value || "Leave", amount: total });
+    saveToDB(); calculateLeave();
+}
+
+function appendHistoryDOM(h) {
+    const div = document.createElement('div');
+    div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount;
+    div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs)</span><button class="btn-del" onclick="this.parentElement.remove(); saveToDB(); calculateLeave();">Delete</button>`;
+    document.getElementById('historyList').appendChild(div);
+}
 }
 
 function addHistoryEntry() {
