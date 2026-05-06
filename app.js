@@ -109,14 +109,20 @@ function calculateLeave() {
     }
 
     const taken = Array.from(document.querySelectorAll('.history-item')).reduce((s, el) => s + parseFloat(el.dataset.amount), 0);
-    document.getElementById('resAnnual').innerText = Math.max(0, annualAccrued - taken).toFixed(2);
+    const finalHours = Math.max(0, annualAccrued - taken);
+    const hoursPerDay = weeklyHours / 5;
+
+    // UI Updates
+    document.getElementById('resAnnual').innerText = finalHours.toFixed(2);
+    document.getElementById('resDays').innerText = (finalHours / hoursPerDay).toFixed(1);
     document.getElementById('resLSL').innerText = Math.max(0, (serviceWeeksTotal / 52) * 0.8667).toFixed(3);
 }
 
 function addHistoryEntry() {
     const start = getDropdownDate('leaveStart');
     const end = getDropdownDate('leaveEnd');
-    const daily = parseFloat(document.getElementById('weeklyHours').value) / 5;
+    const weeklyHours = parseFloat(document.getElementById('weeklyHours').value) || 38;
+    const daily = weeklyHours / 5;
     const ids = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
     let total = 0;
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
