@@ -1,11 +1,9 @@
-const CACHE_NAME = 'nsw-leave-v8'; 
+const CACHE_NAME = 'nsw-leave-v9'; 
 const ASSETS = ['./', './index.html', './app.js', './manifest.json'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
+  e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
 });
 
 self.addEventListener('activate', (e) => {
