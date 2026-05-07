@@ -6,7 +6,8 @@ function populateDropdowns(prefix, startYear, endYear) {
     const dSel = document.getElementById(prefix + 'Day');
     const mSel = document.getElementById(prefix + 'Month');
     const ySel = document.getElementById(prefix + 'Year');
-    if (!dSel) return;
+    if (!dSel || !mSel || !ySel) return;
+    
     dSel.innerHTML = ''; mSel.innerHTML = ''; ySel.innerHTML = '';
     for (let i = 1; i <= 31; i++) dSel.options.add(new Option(i, i));
     months.forEach((m, i) => mSel.options.add(new Option(m, i)));
@@ -40,7 +41,6 @@ async function fetchHolidays() {
                 return `${d.substring(0,4)}-${d.substring(4,6)}-${d.substring(6,8)}`; 
             });
     } catch (e) {
-        console.error("API failed, using fallback holidays.");
         nswHolidays = ["2026-01-01", "2026-01-26", "2026-04-03", "2026-04-06", "2026-04-25", "2026-12-25"];
     }
     calculateLeave();
@@ -52,15 +52,20 @@ dbRequest.onsuccess = (e) => {
     db = e.target.result;
     const curYear = new Date().getFullYear();
     
+    // Core Employment Dropdowns
     populateDropdowns('hire', 1990, curYear + 1);
     populateDropdowns('balance', 1990, curYear + 1);
+    
+    // Logging Dropdowns (Past year to Next year)
     populateDropdowns('leaveStart', curYear - 1, curYear + 1);
     populateDropdowns('leaveEnd', curYear - 1, curYear + 1);
-    populateDropdowns('opt', curYear, curYear + 2);
+    
+    // Optimizer Dropdowns (Current year to Next Year)
+    populateDropdowns('opt', curYear, curYear + 1);
 
-    // Set default Optimizer end date to June 30 of next year
+    // Default Optimizer to June 30 of next year
     document.getElementById('optDay').value = 30;
-    document.getElementById('optMonth').value = 5;
+    document.getElementById('optMonth').value = 5; // June
     document.getElementById('optYear').value = curYear + 1;
 
     fetchHolidays();
@@ -165,18 +170,18 @@ function optimizeLeave() {
         const day = holiday.getDay();
         const dateStr = holiday.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
 
-        if (day === 2) { // Tuesday
+        if (day === 2) { 
             const bridge = new Date(holiday); bridge.setDate(holiday.getDate() - 1);
             tips.push({ title: `Bridge for ${dateStr}`, desc: `Take Mon ${bridge.toLocaleDateString('en-AU')} off.`, mult: "4 days off for 1 day leave" });
         }
-        if (day === 4) { // Thursday
+        if (day === 4) { 
             const bridge = new Date(holiday); bridge.setDate(holiday.getDate() + 1);
             tips.push({ title: `Bridge for ${dateStr}`, desc: `Take Fri ${bridge.toLocaleDateString('en-AU')} off.`, mult: "4 days off for 1 day leave" });
         }
-        if (day === 3) { // Wednesday
+        if (day === 3) { 
             tips.push({ title: `Mid-week Win (${dateStr})`, desc: `Take Mon/Tue OR Thu/Fri off.`, mult: "5 days off for 2 days leave" });
         }
-        if (day === 5 && (holiday.getMonth() === 2 || holiday.getMonth() === 3)) { // Good Friday
+        if (day === 5 && (holiday.getMonth() === 2 || holiday.getMonth() === 3)) { 
              tips.push({ title: "Easter Strategy", desc: "Take the 4 days after Easter Monday off.", mult: "10 days off for 4 days leave" });
         }
     });
