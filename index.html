@@ -19,14 +19,15 @@
         .result-val { font-size: 1.3em; font-weight: bold; display: block; }
         .result-label { font-size: 0.7em; opacity: 0.9; text-transform: uppercase; margin-top: 4px; }
         .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        button { cursor: pointer; border: none; border-radius: 6px; font-weight: 600; }
+        button { cursor: pointer; border: none; border-radius: 6px; font-weight: 600; transition: opacity 0.2s; }
+        button:active { opacity: 0.7; }
         .btn-add { background: #28a745; color: white; width: 100%; padding: 12px; margin-top: 10px; }
         .btn-opt { background: #6f42c1; color: white; width: 100%; padding: 12px; margin-top: 10px; }
         .btn-del { background: #ff4d4f; color: white; padding: 5px 10px; font-size: 0.8em; }
         .roster-grid { display: flex; gap: 8px; flex-wrap: wrap; }
         .roster-grid label { display: flex; align-items: center; gap: 4px; background: #eee; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85em; }
-        .opt-item { background: #f8f9fa; border-left: 4px solid #6f42c1; padding: 10px; margin-top: 10px; border-radius: 4px; font-size: 0.9em; }
-        .opt-tag { display: inline-block; background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-weight: bold; color: #6f42c1; margin-right: 5px; }
+        .opt-item { background: #f8f9fa; border-left: 4px solid #6f42c1; padding: 10px; margin-top: 10px; border-radius: 4px; font-size: 0.9em; line-height: 1.4; }
+        .opt-tag { display: inline-block; background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-weight: bold; color: #6f42c1; margin-bottom: 5px; }
     </style>
 </head>
 <body>
@@ -114,7 +115,15 @@
 
     <div class="card">
         <div class="section-title">Leave Optimizer</div>
-        <p style="font-size: 0.8em; color: #666;">Find periods where public holidays allow you to get more time off for less leave.</p>
+        <p style="font-size: 0.8em; color: #666;">Scan for high-value holiday clusters.</p>
+        <div class="input-group">
+            <label>Calculate Until:</label>
+            <div class="date-row">
+                <select id="optDay"></select>
+                <select id="optMonth"></select>
+                <select id="optYear"></select>
+            </div>
+        </div>
         <button class="btn-opt" onclick="optimizeLeave()">Find Best Leave Dates</button>
         <div id="optimizationResults" style="margin-top: 15px;"></div>
     </div>
@@ -125,9 +134,20 @@
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js').then(reg => {
                     reg.update();
+                    reg.onupdatefound = () => {
+                        const installingWorker = reg.installing;
+                        installingWorker.onstatechange = () => {
+                            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                window.location.reload();
+                            }
+                        };
+                    };
                 });
             });
         }
+        window.addEventListener('online', () => {
+            if (typeof fetchHolidays === "function") fetchHolidays();
+        });
     </script>
 </body>
 </html>
