@@ -7,6 +7,10 @@ function populateDropdowns(prefix, startYear, endYear) {
     const mSel = document.getElementById(prefix + 'Month');
     const ySel = document.getElementById(prefix + 'Year');
     if (!dSel) return;
+    
+    // Clear existing options
+    dSel.innerHTML = ''; mSel.innerHTML = ''; ySel.innerHTML = '';
+
     for (let i = 1; i <= 31; i++) dSel.options.add(new Option(i, i));
     months.forEach((m, i) => mSel.options.add(new Option(m, i)));
     for (let i = endYear; i >= startYear; i--) ySel.options.add(new Option(i, i));
@@ -46,10 +50,15 @@ dbRequest.onupgradeneeded = (e) => e.target.result.createObjectStore("userData")
 dbRequest.onsuccess = (e) => {
     db = e.target.result;
     const curYear = new Date().getFullYear();
-    populateDropdowns('hire', 1990, curYear + 5);
-    populateDropdowns('balance', 1990, curYear + 5);
-    populateDropdowns('leaveStart', 2024, curYear + 5);
-    populateDropdowns('leaveEnd', 2024, curYear + 5);
+    
+    // Hire/Balance dates remain wider range
+    populateDropdowns('hire', 1990, curYear + 1);
+    populateDropdowns('balance', 1990, curYear + 1);
+    
+    // Log Leave dates restricted to +/- 1 year
+    populateDropdowns('leaveStart', curYear - 1, curYear + 1);
+    populateDropdowns('leaveEnd', curYear - 1, curYear + 1);
+    
     fetchHolidays();
     loadFromDB();
 };
@@ -112,7 +121,6 @@ function calculateLeave() {
     const finalHours = Math.max(0, annualAccrued - taken);
     const hoursPerDay = weeklyHours / 5;
 
-    // UI Updates
     document.getElementById('resAnnual').innerText = finalHours.toFixed(2);
     document.getElementById('resDays').innerText = (finalHours / hoursPerDay).toFixed(1);
     document.getElementById('resLSL').innerText = Math.max(0, (serviceWeeksTotal / 52) * 0.8667).toFixed(3);
