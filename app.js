@@ -11,7 +11,7 @@ function populateDropdowns(prefix, startYear, endYear) {
     dSel.innerHTML = ''; mSel.innerHTML = ''; ySel.innerHTML = '';
     for (let i = 1; i <= 31; i++) dSel.options.add(new Option(i, i));
     months.forEach((m, i) => mSel.options.add(new Option(m, i)));
-    for (let i = endYear; i >= startYear; i--) ySel.options.add(new Option(i, i));
+    for (let i = startYear; i <= endYear; i++) ySel.options.add(new Option(i, i));
 }
 
 function getDropdownDate(prefix) {
@@ -41,7 +41,11 @@ async function fetchHolidays() {
                 return `${d.substring(0,4)}-${d.substring(4,6)}-${d.substring(6,8)}`; 
             });
     } catch (e) {
-        nswHolidays = ["2026-01-01", "2026-01-26", "2026-04-03", "2026-04-06", "2026-04-25", "2026-12-25"];
+        // Robust Fallback for 2026 & 2027
+        nswHolidays = [
+            "2026-01-01", "2026-01-26", "2026-04-03", "2026-04-06", "2026-04-25", "2026-06-08", "2026-10-05", "2026-12-25", "2026-12-28",
+            "2027-01-01", "2027-01-26", "2027-03-26", "2027-03-29", "2027-04-26", "2027-06-14", "2027-10-04", "2027-12-25", "2027-12-27", "2027-12-28"
+        ];
     }
     calculateLeave();
 }
@@ -52,20 +56,14 @@ dbRequest.onsuccess = (e) => {
     db = e.target.result;
     const curYear = new Date().getFullYear();
     
-    // Core Employment Dropdowns
-    populateDropdowns('hire', 1990, curYear + 1);
-    populateDropdowns('balance', 1990, curYear + 1);
-    
-    // Logging Dropdowns (Past year to Next year)
-    populateDropdowns('leaveStart', curYear - 1, curYear + 1);
-    populateDropdowns('leaveEnd', curYear - 1, curYear + 1);
-    
-    // Optimizer Dropdowns (Current year to Next Year)
-    populateDropdowns('opt', curYear, curYear + 1);
+    populateDropdowns('hire', 1995, curYear + 1);
+    populateDropdowns('balance', 1995, curYear + 1);
+    populateDropdowns('leaveStart', curYear - 1, curYear + 2);
+    populateDropdowns('leaveEnd', curYear - 1, curYear + 2);
+    populateDropdowns('opt', curYear, curYear + 2);
 
-    // Default Optimizer to June 30 of next year
-    document.getElementById('optDay').value = 30;
-    document.getElementById('optMonth').value = 5; // June
+    document.getElementById('optDay').value = 31;
+    document.getElementById('optMonth').value = 11; // December
     document.getElementById('optYear').value = curYear + 1;
 
     fetchHolidays();
@@ -161,32 +159,43 @@ function optimizeLeave() {
     if (nswHolidays.length === 0) return;
 
     const tips = [];
-    const sortedHolidays = nswHolidays.map(d => new Date(d)).sort((a,b) => a-b);
     const today = new Date();
     const endDate = getDropdownDate('opt');
+    
+    // Convert holiday strings to objects for easier day-of-week manipulation
+    const hData = nswHolidays.map(h => new Date(h)).sort((a,b) => a-b);
 
-    sortedHolidays.forEach(holiday => {
-        if (holiday <= today || holiday > endDate) return;
-        const day = holiday.getDay();
-        const dateStr = holiday.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+    hData.forEach(h => {
+        if (h < today || h > endDate) return;
+        const day = h.getDay();
+        const dateStr = h.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
 
-        if (day === 2) { 
-            const bridge = new Date(holiday); bridge.setDate(holiday.getDate() - 1);
-            tips.push({ title: `Bridge for ${dateStr}`, desc: `Take Mon ${bridge.toLocaleDateString('en-AU')} off.`, mult: "4 days off for 1 day leave" });
+        // TUESDAY HOLIDAY -> Bridge Monday
+        if (day === 2) {
+            tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: `Take Monday off to create a 4-day weekend.`, mult: "4 days off for 1 day leave" });
         }
-        if (day === 4) { 
-            const bridge = new Date(holiday); bridge.setDate(holiday.getDate() + 1);
-            tips.push({ title: `Bridge for ${dateStr}`, desc: `Take Fri ${bridge.toLocaleDateString('en-AU')} off.`, mult: "4 days off for 1 day leave" });
+        // THURSDAY HOLIDAY -> Bridge Friday
+        if (day === 4) {
+            tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: `Take Friday off to create a 4-day weekend.`, mult: "4 days off for 1 day leave" });
         }
-        if (day === 3) { 
-            tips.push({ title: `Mid-week Win (${dateStr})`, desc: `Take Mon/Tue OR Thu/Fri off.`, mult: "5 days off for 2 days leave" });
+        // WEDNESDAY HOLIDAY -> The Split
+        if (day === 3) {
+            tips.push({ title: `Mid-week Win: ${dateStr}`, desc: `Take Mon+Tue OR Thu+Fri off for a 5-day break.`, mult: "5 days off for 2 days leave" });
         }
-        if (day === 5 && (holiday.getMonth() === 2 || holiday.getMonth() === 3)) { 
-             tips.push({ title: "Easter Strategy", desc: "Take the 4 days after Easter Monday off.", mult: "10 days off for 4 days leave" });
+        // Easter Strategy (Check if Good Friday)
+        if (day === 5 && (h.getMonth() === 2 || h.getMonth() === 3)) {
+            tips.push({ title: `Easter Mega-Break`, desc: `Take the 4 days after Easter Monday off.`, mult: "10 days off for 4 days leave" });
+        }
+        // Christmas Strategy (End of Dec)
+        if (h.getMonth() === 11 && h.getDate() === 25) {
+            tips.push({ title: `End of Year Reset`, desc: `Take the 3 days between Boxing Day and New Year's Day.`, mult: "10 days off for 3 days leave" });
         }
     });
 
-    resultsDiv.innerHTML = tips.length > 0 
-        ? tips.map(t => `<div class="opt-item"><span class="opt-tag">${t.title}</span><br>${t.desc}<br><small style="color:#28a745;"><b>${t.mult}</b></small></div>`).join('')
-        : "No high-value clusters found.";
+    // Remove duplicates if any strategies overlap
+    const uniqueTips = Array.from(new Set(tips.map(a => JSON.stringify(a)))).map(a => JSON.parse(a));
+
+    resultsDiv.innerHTML = uniqueTips.length > 0 
+        ? uniqueTips.map(t => `<div class="opt-item"><span class="opt-tag">${t.title}</span><br>${t.desc}<br><small style="color:#28a745;"><b>${t.mult}</b></small></div>`).join('')
+        : "No high-value clusters found in this period.";
 }
