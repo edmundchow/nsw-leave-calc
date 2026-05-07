@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nsw-leave-v13'; 
+const CACHE_NAME = 'nsw-leave-v14'; 
 const ASSETS = ['./', './index.html', './app.js', './manifest.json'];
 
 self.addEventListener('install', (e) => {
