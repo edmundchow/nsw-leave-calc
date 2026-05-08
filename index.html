@@ -2,60 +2,32 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NSW Leave Flow</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSW Leave Calculator</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <header>
-        <h1>NSW Leave Flow</h1>
-        <p id="lastSync">Holidays updated: Just now</p>
+        <h1>NSW Leave Calculator</h1>
     </header>
 
     <div class="dashboard-hero">
-        <p>Current Leave Balance</p>
+        <p>Annual Leave Balance</p>
         <div class="balance-large"><span id="resAnnual">0.00</span> <small>hrs</small></div>
-        <p>≈ <span id="resDays">0</span> days available</p>
-        <div class="lsl-badge">LSL: <span id="resLSL">0.000</span> weeks</div>
+        <p>Long Service Leave: <span id="resLSL">0.000</span> weeks</p>
     </div>
 
     <div class="card">
-        <div class="card-title">⚙️ Setup</div>
-        
+        <div class="input-group">
+            <label>Hire Date</label>
+            <input type="date" id="hireDate" onchange="calculateLeave()">
+        </div>
+
         <div class="input-group">
             <label>Weekly Hours</label>
             <input type="number" id="weeklyHours" value="38" onchange="calculateLeave()">
         </div>
 
-        <div class="input-group">
-            <label>Your Working Days (Roster)</label>
-            <div class="roster-grid">
-                <label class="chip"><input type="checkbox" id="day-1" checked> Mon</label>
-                <label class="chip"><input type="checkbox" id="day-2" checked> Tue</label>
-                <label class="chip"><input type="checkbox" id="day-3" checked> Wed</label>
-                <label class="chip"><input type="checkbox" id="day-4" checked> Thu</label>
-                <label class="chip"><input type="checkbox" id="day-5" checked> Fri</label>
-                <label class="chip"><input type="checkbox" id="day-6"> Sat</label>
-                <label class="chip"><input type="checkbox" id="day-0"> Sun</label>
-            </div>
-        </div>
-
-        <div class="input-group">
-            <label>Hourly Rate ($)</label>
-            <input type="number" id="hourlyRate" placeholder="0.00" onchange="calculateResignation()">
-        </div>
-        
-        <div class="input-group">
-            <label>Date of Hire (DD MMM YYYY)</label>
-            <div class="date-row">
-                <select id="hireDay" onchange="syncDate('hire')"></select>
-                <select id="hireMonth" onchange="syncDate('hire')"></select>
-                <select id="hireYear" onchange="syncDate('hire')"></select>
-            </div>
-            <input type="hidden" id="hireDate">
-        </div>
-        
         <div class="input-group">
             <label>Calculation Mode</label>
             <select id="calcMode" onchange="toggleMode()">
@@ -65,41 +37,20 @@
         </div>
 
         <div id="balanceSection" style="display:none;">
-            <label>Manual Balance (hrs)</label>
+            <label>Current Balance (hrs)</label>
             <input type="number" id="startBalance" onchange="calculateLeave()">
-            
-            <label>As of Date (DD MMM YYYY)</label>
-            <div class="date-row">
-                <select id="balDay" onchange="syncDate('bal')"></select>
-                <select id="balMonth" onchange="syncDate('bal')"></select>
-                <select id="balYear" onchange="syncDate('bal')"></select>
-            </div>
-            <input type="hidden" id="balanceDate">
+            <label>As of Date</label>
+            <input type="date" id="balanceDate" onchange="calculateLeave()">
         </div>
     </div>
 
-    <div class="card purple-card">
-        <div class="card-title">🚀 Holiday Optimizer</div>
-        <p class="small-text">Maximize your time off until:</p>
-        <div class="date-row">
-            <select id="optDay" onchange="syncDate('opt')"></select>
-            <select id="optMonth" onchange="syncDate('opt')"></select>
-            <select id="optYear" onchange="syncDate('opt')"></select>
-        </div>
-        <input type="hidden" id="optDate">
-        <div id="optimizationResults" class="results-area"></div>
-    </div>
-
-    <div class="card blue-card">
-        <div class="card-title">💼 Exit Strategy</div>
-        <p class="small-text">Projected payout if you leave on:</p>
-        <div class="date-row">
-            <select id="resigDay" onchange="syncDate('resig')"></select>
-            <select id="resigMonth" onchange="syncDate('resig')"></select>
-            <select id="resigYear" onchange="syncDate('resig')"></select>
-        </div>
-        <input type="hidden" id="resigDate">
-        <div id="resignationResults" class="results-area"></div>
+    <div class="card">
+        <div class="card-title">Resignation Payout</div>
+        <label>Hourly Rate ($)</label>
+        <input type="number" id="hourlyRate" onchange="calculateResignation()">
+        <label>Exit Date</label>
+        <input type="date" id="resigDate" onchange="calculateResignation()">
+        <div id="resignationResults"></div>
     </div>
 
     <script src="app.js"></script>
