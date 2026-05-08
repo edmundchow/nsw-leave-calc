@@ -21,6 +21,8 @@
         .roster-grid label { display: flex; align-items: center; gap: 4px; background: #eee; padding: 8px 12px; border-radius: 20px; font-size: 0.85em; }
         .opt-item { background: #f8f9fa; border-left: 4px solid #6f42c1; padding: 10px; margin-top: 10px; border-radius: 4px; font-size: 0.9em; }
         .opt-tag { font-weight: bold; color: #6f42c1; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 8px 12px; margin-top: 5px; border-radius: 6px; border: 1px solid #eee; }
+        .btn-del { background: #ff4d4d; color: white; padding: 4px 8px; font-size: 0.8em; margin-top: 0; width: auto; }
     </style>
 </head>
 <body>
@@ -31,7 +33,7 @@
     </div>
 
     <div class="card">
-        <div class="section-title">Settings</div>
+        <div class="section-title">Core Settings</div>
         <label>Hire Date</label>
         <div class="date-row"><select id="hireDay"></select><select id="hireMonth"></select><select id="hireYear"></select></div>
         <input type="number" id="weeklyHours" value="38" placeholder="Weekly Hours">
@@ -39,10 +41,19 @@
 
     <div class="card">
         <div class="section-title">Manual Balance</div>
-        <select id="calcMode" onchange="toggleMode()"><option value="startDate">From Hire</option><option value="knownBalance">Manual Entry</option></select>
+        <select id="calcMode" onchange="toggleMode()">
+            <option value="startDate">Calculate from Hire Date</option>
+            <option value="knownBalance">Enter Manual Balance</option>
+        </select>
+        
         <div id="balanceSection" style="display:none; margin-top:10px;">
-            <div class="date-row"><select id="balanceDay"></select><select id="balanceMonth"></select><select id="balanceYear"></select></div>
-            <input type="number" id="startBalance" value="0" step="0.01" placeholder="Current Hours">
+            <label>Balance as at:</label>
+            <div class="date-row">
+                <select id="balanceDay"></select>
+                <select id="balanceMonth"></select>
+                <select id="balanceYear"></select>
+            </div>
+            <input type="number" id="startBalance" value="0" step="0.01" placeholder="Current Hours Balance">
         </div>
     </div>
 
@@ -54,6 +65,15 @@
             <label><input type="checkbox" id="thu" checked>T</label><label><input type="checkbox" id="fri" checked>F</label>
             <label><input type="checkbox" id="sat">S</label>
         </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">Add Leave Taken</div>
+        <div class="date-row"><select id="leaveStartDay"></select><select id="leaveStartMonth"></select><select id="leaveStartYear"></select></div>
+        <div class="date-row"><select id="leaveEndDay"></select><select id="leaveEndMonth"></select><select id="leaveEndYear"></select></div>
+        <input type="text" id="leaveNote" placeholder="e.g. Bali Trip">
+        <button class="btn-add" onclick="addHistoryEntry()">Add to History</button>
+        <div id="historyList" style="margin-top:10px;"></div>
     </div>
 
     <div class="card">
@@ -69,15 +89,14 @@
         </div>
         
         <button class="btn-opt" style="background:#dc3545;" onclick="calculateResignation()">Analyze Exit Strategy</button>
-        
-        <div id="resignationResults" style="margin-top:15px; font-size:0.9em;">
-            </div>
+        <div id="resignationResults" style="margin-top:15px; font-size:0.9em;"></div>
     </div>
 
     <div class="card">
         <div class="section-title">Optimizer</div>
+        <label>Analyze until:</label>
         <div class="date-row"><select id="optDay"></select><select id="optMonth"></select><select id="optYear"></select></div>
-        <button class="btn-opt" onclick="optimizeLeave()">Find Clusters</button>
+        <button class="btn-opt" onclick="optimizeLeave()">Find High-Value Clusters</button>
         <div id="optimizationResults"></div>
     </div>
 
