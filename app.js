@@ -41,19 +41,40 @@ function setDropdownDate(prefix, dateStr) {
 
 // 3. SMART HOLIDAY SYNC (Local-First)
 async function syncHolidays() {
-    // 1. Load from cache immediately for speed
-    const tx = db.transaction("holidayData", "readonly");
-    const store = tx.objectStore("holidayData");
-    const getRequest = store.get("nsw_list");
+    // EMERGENCY FALLBACK (2026-2027)
+    // This ensures the app works immediately if API/DB fail
+    const fallbackHolidays = [
+        "2026-01-01", "2026-01-26", "2026-04-03", "2026-04-06", "2026-04-25", 
+        "2026-06-08", "2026-10-05", "2026-12-25", "2026-12-28", "2027-01-01", 
+        "2027-01-26", "2027-03-26", "2027-03-29", "2027-04-26", "2027-06-14"
+    ];
 
-    getRequest.onsuccess = () => {
-        if (getRequest.result) {
-            nswHolidays = getRequest.result;
+    try {
+        const tx = db.transaction("holidayData", "readonly");
+        const store = tx.objectStore("holidayData");
+        const getRequest = store.get("nsw_list");
+
+        getRequest.onsuccess = () => {
+            if (getRequest.result && getRequest.result.length > 0) {
+                nswHolidays = getRequest.result;
+            } else {
+                // If DB is empty, use fallback while waiting for API
+                nswHolidays = fallbackHolidays;
+            }
             calculateLeave();
-        }
-        // 2. Try to update from API in the background
+            attemptNetworkFetch();
+        };
+
+        getRequest.onerror = () => {
+            nswHolidays = fallbackHolidays;
+            calculateLeave();
+        };
+    } catch (e) {
+        // If the Database store doesn't exist yet, use fallback
+        nswHolidays = fallbackHolidays;
+        calculateLeave();
         attemptNetworkFetch();
-    };
+    }
 }
 
 async function attemptNetworkFetch() {
