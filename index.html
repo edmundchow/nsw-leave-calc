@@ -47,8 +47,13 @@
         </div>
         
         <div class="input-group">
-            <label>Date of Hire</label>
-            <input type="date" id="hireDate" onchange="calculateLeave()">
+            <label>Date of Hire (DD MMM YYYY)</label>
+            <div class="date-row">
+                <select id="hireDay" onchange="syncDate('hire')"></select>
+                <select id="hireMonth" onchange="syncDate('hire')"></select>
+                <select id="hireYear" onchange="syncDate('hire')"></select>
+            </div>
+            <input type="hidden" id="hireDate">
         </div>
         
         <div class="input-group">
@@ -62,15 +67,26 @@
         <div id="balanceSection" style="display:none;">
             <label>Manual Balance (hrs)</label>
             <input type="number" id="startBalance" onchange="calculateLeave()">
-            <label>As of Date</label>
-            <input type="date" id="balanceDate" onchange="calculateLeave()">
+            
+            <label>As of Date (DD MMM YYYY)</label>
+            <div class="date-row">
+                <select id="balDay" onchange="syncDate('bal')"></select>
+                <select id="balMonth" onchange="syncDate('bal')"></select>
+                <select id="balYear" onchange="syncDate('bal')"></select>
+            </div>
+            <input type="hidden" id="balanceDate">
         </div>
     </div>
 
     <div class="card purple-card">
         <div class="card-title">🚀 Holiday Optimizer</div>
         <p class="small-text">Maximize your time off until:</p>
-        <input type="date" id="optDate">
+        <div class="date-row">
+            <select id="optDay" onchange="syncDate('opt')"></select>
+            <select id="optMonth" onchange="syncDate('opt')"></select>
+            <select id="optYear" onchange="syncDate('opt')"></select>
+        </div>
+        <input type="hidden" id="optDate">
         <button class="btn btn-purple" onclick="optimizeLeave()">Find Best Dates</button>
         <div id="optimizationResults" class="results-area"></div>
     </div>
@@ -78,7 +94,12 @@
     <div class="card blue-card">
         <div class="card-title">💼 Exit Strategy</div>
         <p class="small-text">Projected payout if you leave on:</p>
-        <input type="date" id="resigDate">
+        <div class="date-row">
+            <select id="resigDay" onchange="syncDate('resig')"></select>
+            <select id="resigMonth" onchange="syncDate('resig')"></select>
+            <select id="resigYear" onchange="syncDate('resig')"></select>
+        </div>
+        <input type="hidden" id="resigDate">
         <button class="btn btn-blue" onclick="calculateResignation()">Calculate Payout</button>
         <div id="resignationResults" class="results-area"></div>
     </div>
