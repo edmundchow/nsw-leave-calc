@@ -36,20 +36,22 @@ body {
 
 .card-title { font-weight: 700; font-size: 18px; margin-bottom: 15px; }
 
-/* INPUTS */
-.input-group { margin-bottom: 15px; }
-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
-input, select {
+.date-row {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr 1.2fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+select, input[type="number"] {
     width: 100%;
     padding: 12px;
     border: 1px solid #e5e5ea;
     border-radius: 12px;
     font-size: 16px;
     background: #fafafa;
-    margin-bottom: 10px;
 }
 
-/* BUTTONS */
 .btn {
     width: 100%;
     padding: 14px;
@@ -59,14 +61,12 @@ input, select {
     font-weight: 600;
     color: white;
     cursor: pointer;
-    transition: opacity 0.2s;
+    margin-top: 10px;
 }
 
 .btn-purple { background: var(--secondary); }
 .btn-blue { background: var(--primary); }
-.btn:active { opacity: 0.7; }
 
-/* ROSTER CHIPS */
 .roster-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .chip {
     background: #f2f2f7;
@@ -75,7 +75,6 @@ input, select {
     font-size: 14px;
     display: flex;
     align-items: center;
-    gap: 5px;
 }
 .chip:has(input:checked) { background: var(--primary); color: white; }
 
