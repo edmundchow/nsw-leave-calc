@@ -1,7 +1,12 @@
+/**
+ * NSW Leave Calculator - Core Logic
+ * Features: Roster-based accrual, Local-First Sync, Dynamic Fallbacks
+ */
+
 let nswHolidays = [];
 let db;
 
-// 1. DATABASE INIT
+// 1. DATABASE & INITIALIZATION
 const dbRequest = indexedDB.open("NSWLeaveTracker", 2);
 
 dbRequest.onupgradeneeded = (e) => {
@@ -19,22 +24,26 @@ function initApp() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('resigDate').value = today;
     
-    // Set default optimization end to end of next year
     const nextYear = new Date().getFullYear() + 1;
     document.getElementById('optDate').value = `${nextYear}-12-31`;
+
+    // Listen for roster changes
+    document.querySelectorAll('.chip input').forEach(input => {
+        input.addEventListener('change', calculateLeave);
+    });
 
     syncHolidays();
     loadFromDB();
 }
 
-// 2. HOLIDAY SYNC & FALLBACK
+// 2. HOLIDAY SYNC (Local + Dynamic Fallback)
 function generateStandardHolidays(year) {
     return [`${year}-01-01`, `${year}-01-26`, `${year}-04-25`, `${year}-12-25`, `${year}-12-26` ];
 }
 
 async function syncHolidays() {
     const curYear = new Date().getFullYear();
-    let fallback = [...generateStandardHolidays(curYear), ...generateStandardHolidays(curYear+1)];
+    let fallback = [...generateStandardHolidays(curYear), ...generateStandardHolidays(curYear+1), ...generateStandardHolidays(curYear+2)];
 
     try {
         const tx = db.transaction("holidayData", "readonly");
@@ -67,48 +76,68 @@ async function attemptNetworkFetch() {
             nswHolidays = fresh;
             const tx = db.transaction("holidayData", "readwrite");
             tx.objectStore("holidayData").put(fresh, "nsw_list");
-            document.getElementById('lastSync').innerText = "Holidays updated: From NSW Gov API";
+            document.getElementById('lastSync').innerText = "Holidays updated: NSW Gov API";
             calculateLeave();
         }
-    } catch (e) { console.warn("Using cached/fallback holidays."); }
+    } catch (e) { console.warn("Using offline/fallback holidays."); }
 }
 
-// 3. CORE LOGIC
+// 3. CORE CALCULATION LOGIC
+function getWorkingDaysCount() {
+    let count = 0;
+    for (let i = 0; i < 7; i++) {
+        if (document.getElementById(`day-${i}`).checked) count++;
+    }
+    return count || 5; 
+}
+
 function calculateLeave() {
     const mode = document.getElementById('calcMode').value;
-    const hireDate = new Date(document.getElementById('hireDate').value);
+    const hireDateStr = document.getElementById('hireDate').value;
     const weeklyHours = parseFloat(document.getElementById('weeklyHours').value) || 38;
+    const workingDaysCount = getWorkingDaysCount();
+    const hoursPerDay = weeklyHours / workingDaysCount;
     const today = new Date();
     
-    if (isNaN(hireDate)) return;
+    if (!hireDateStr) return;
+    const hireDate = new Date(hireDateStr);
 
     let serviceWeeks = (today - hireDate) / (1000 * 60 * 60 * 24 * 7);
-    let totalAccrued = 0;
+    let totalAccruedHours = 0;
 
     if (mode === 'startDate') {
-        totalAccrued = serviceWeeks * (4 / 52) * weeklyHours;
+        totalAccruedHours = serviceWeeks * (4 / 52) * weeklyHours;
     } else {
-        const bDate = new Date(document.getElementById('balanceDate').value);
+        const bDateStr = document.getElementById('balanceDate').value;
         const startBal = parseFloat(document.getElementById('startBalance').value) || 0;
-        const weeksSince = (today - bDate) / (1000 * 60 * 60 * 24 * 7);
-        totalAccrued = startBal + (weeksSince * (4 / 52) * weeklyHours);
+        if (bDateStr) {
+            const bDate = new Date(bDateStr);
+            const weeksSince = (today - bDate) / (1000 * 60 * 60 * 24 * 7);
+            totalAccruedHours = startBal + (weeksSince * (4 / 52) * weeklyHours);
+        } else {
+            totalAccruedHours = startBal;
+        }
     }
 
-    document.getElementById('resAnnual').innerText = totalAccrued.toFixed(2);
-    document.getElementById('resDays').innerText = (totalAccrued / (weeklyHours/5)).toFixed(1);
+    // UI Updates
+    document.getElementById('resAnnual').innerText = totalAccruedHours.toFixed(2);
+    document.getElementById('resDays').innerText = (totalAccruedHours / hoursPerDay).toFixed(1);
     document.getElementById('resLSL').innerText = Math.max(0, (serviceWeeks / 52) * 0.8667).toFixed(3);
     
     saveToDB();
+    calculateResignation();
+    optimizeLeave();
 }
 
 function calculateResignation() {
     const rate = parseFloat(document.getElementById('hourlyRate').value) || 0;
     const weeklyHours = parseFloat(document.getElementById('weeklyHours').value) || 38;
     const currentBalance = parseFloat(document.getElementById('resAnnual').innerText) || 0;
-    const exitDate = new Date(document.getElementById('resigDate').value);
+    const exitDateStr = document.getElementById('resigDate').value;
     const today = new Date();
     
-    if (rate <= 0 || isNaN(exitDate)) return;
+    if (rate <= 0 || !exitDateStr) return;
+    const exitDate = new Date(exitDateStr);
 
     let weeksToExit = Math.max(0, (exitDate - today) / (1000 * 60 * 60 * 24 * 7));
     const projectedBal = currentBalance + (weeksToExit * (weeklyHours * (4/52)));
@@ -124,7 +153,9 @@ function calculateResignation() {
 
 function optimizeLeave() {
     const results = document.getElementById('optimizationResults');
-    const endDate = new Date(document.getElementById('optDate').value);
+    const endDateStr = document.getElementById('optDate').value;
+    if (!endDateStr) return;
+    const endDate = new Date(endDateStr);
     const today = new Date();
     
     const tips = nswHolidays.map(h => new Date(h))
@@ -133,6 +164,7 @@ function optimizeLeave() {
         .map(h => {
             const day = h.getDay();
             const dStr = h.toLocaleDateString('en-AU', {day:'numeric', month:'short'});
+            // Strategy based on standard weekend or adjacent days
             if (day === 2 || day === 4) return `<div class="opt-item">🚀 <b>${dStr} Bridge:</b> Take 1 day, get 4 off.</div>`;
             if (day === 1 || day === 5) return `<div class="opt-item">☀️ <b>${dStr}:</b> Long weekend.</div>`;
             return null;
@@ -143,17 +175,26 @@ function optimizeLeave() {
 
 // 4. PERSISTENCE
 function toggleMode() {
-    document.getElementById('balanceSection').style.display = document.getElementById('calcMode').value === 'knownBalance' ? 'block' : 'none';
+    const mode = document.getElementById('calcMode').value;
+    document.getElementById('balanceSection').style.display = mode === 'knownBalance' ? 'block' : 'none';
     calculateLeave();
 }
 
 function saveToDB() {
     if (!db) return;
+    const roster = [];
+    for (let i = 0; i < 7; i++) {
+        roster.push(document.getElementById(`day-${i}`).checked);
+    }
+
     const profile = {
         hireDate: document.getElementById('hireDate').value,
         calcMode: document.getElementById('calcMode').value,
         weeklyHours: document.getElementById('weeklyHours').value,
-        hourlyRate: document.getElementById('hourlyRate').value
+        hourlyRate: document.getElementById('hourlyRate').value,
+        balanceDate: document.getElementById('balanceDate').value,
+        startBalance: document.getElementById('startBalance').value,
+        roster: roster
     };
     db.transaction("userData", "readwrite").objectStore("userData").put(profile, "profile");
 }
@@ -162,10 +203,18 @@ function loadFromDB() {
     db.transaction("userData", "readonly").objectStore("userData").get("profile").onsuccess = (e) => {
         const d = e.target.result;
         if (!d) return;
-        document.getElementById('hireDate').value = d.hireDate;
-        document.getElementById('calcMode').value = d.calcMode;
-        document.getElementById('weeklyHours').value = d.weeklyHours;
-        document.getElementById('hourlyRate').value = d.hourlyRate;
+        document.getElementById('hireDate').value = d.hireDate || "";
+        document.getElementById('calcMode').value = d.calcMode || "startDate";
+        document.getElementById('weeklyHours').value = d.weeklyHours || 38;
+        document.getElementById('hourlyRate').value = d.hourlyRate || "";
+        document.getElementById('balanceDate').value = d.balanceDate || "";
+        document.getElementById('startBalance').value = d.startBalance || 0;
+        
+        if (d.roster) {
+            d.roster.forEach((checked, i) => {
+                document.getElementById(`day-${i}`).checked = checked;
+            });
+        }
         toggleMode();
     };
 }
