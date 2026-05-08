@@ -22,18 +22,35 @@
 
     <div class="card">
         <div class="card-title">⚙️ Setup</div>
+        
         <div class="input-group">
             <label>Weekly Hours</label>
             <input type="number" id="weeklyHours" value="38" onchange="calculateLeave()">
         </div>
+
+        <div class="input-group">
+            <label>Your Working Days (Roster)</label>
+            <div class="roster-grid">
+                <label class="chip"><input type="checkbox" id="day-1" checked> Mon</label>
+                <label class="chip"><input type="checkbox" id="day-2" checked> Tue</label>
+                <label class="chip"><input type="checkbox" id="day-3" checked> Wed</label>
+                <label class="chip"><input type="checkbox" id="day-4" checked> Thu</label>
+                <label class="chip"><input type="checkbox" id="day-5" checked> Fri</label>
+                <label class="chip"><input type="checkbox" id="day-6"> Sat</label>
+                <label class="chip"><input type="checkbox" id="day-0"> Sun</label>
+            </div>
+        </div>
+
         <div class="input-group">
             <label>Hourly Rate ($)</label>
             <input type="number" id="hourlyRate" placeholder="0.00" onchange="calculateResignation()">
         </div>
+        
         <div class="input-group">
             <label>Date of Hire</label>
             <input type="date" id="hireDate" onchange="toggleMode()">
         </div>
+        
         <div class="input-group">
             <label>Calculation Mode</label>
             <select id="calcMode" onchange="toggleMode()">
@@ -41,6 +58,7 @@
                 <option value="knownBalance">From Manual Balance</option>
             </select>
         </div>
+
         <div id="balanceSection" style="display:none;">
             <label>Manual Balance (hrs)</label>
             <input type="number" id="startBalance" onchange="calculateLeave()">
