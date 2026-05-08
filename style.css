@@ -1,46 +1,88 @@
+:root {
+    --primary: #007AFF;
+    --secondary: #6f42c1;
+    --bg: #f2f2f7;
+    --card: #ffffff;
+    --text: #1c1c1e;
+    --muted: #8e8e93;
+}
+
 body {
-    font-family: sans-serif;
-    background-color: #f4f4f9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    margin: 0;
     padding: 20px;
-    color: #333;
 }
 
 .dashboard-hero {
-    background: #0070f3;
+    background: linear-gradient(135deg, var(--primary), #5856d6);
     color: white;
-    padding: 20px;
-    border-radius: 12px;
+    padding: 30px 20px;
+    border-radius: 24px;
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
 }
 
-.balance-large {
-    font-size: 32px;
-    font-weight: bold;
-}
+.balance-large { font-size: 44px; font-weight: 800; }
 
 .card {
-    background: white;
+    background: var(--card);
+    border-radius: 20px;
     padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
-.input-group {
-    margin-bottom: 15px;
-}
+.card-title { font-weight: 700; font-size: 18px; margin-bottom: 15px; }
 
-label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
+/* INPUTS */
+.input-group { margin-bottom: 15px; }
+label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
 input, select {
     width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #e5e5ea;
+    border-radius: 12px;
+    font-size: 16px;
+    background: #fafafa;
+    margin-bottom: 10px;
+}
+
+/* BUTTONS */
+.btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.btn-purple { background: var(--secondary); }
+.btn-blue { background: var(--primary); }
+.btn:active { opacity: 0.7; }
+
+/* ROSTER CHIPS */
+.roster-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.chip {
+    background: #f2f2f7;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.chip:has(input:checked) { background: var(--primary); color: white; }
+
+.opt-item {
+    background: #f8f0ff;
+    border-left: 4px solid var(--secondary);
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 15px;
 }
