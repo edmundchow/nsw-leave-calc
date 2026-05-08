@@ -47,8 +47,20 @@
         </div>
         
         <div class="input-group">
-            <label>Date of Hire</label>
-            <input type="date" id="hireDate" onchange="toggleMode()">
+            <label>Date of Hire (Quick Select)</label>
+            <div class="date-row">
+                <select id="hireYear" onchange="syncHireDate()"></select>
+                <select id="hireMonth" onchange="syncHireDate()">
+                    <option value="0">Jan</option><option value="1">Feb</option>
+                    <option value="2">Mar</option><option value="3">Apr</option>
+                    <option value="4">May</option><option value="5">Jun</option>
+                    <option value="6">Jul</option><option value="7">Aug</option>
+                    <option value="8">Sep</option><option value="9">Oct</option>
+                    <option value="10">Nov</option><option value="11">Dec</option>
+                </select>
+                <select id="hireDay" onchange="syncHireDate()"></select>
+            </div>
+            <input type="hidden" id="hireDate">
         </div>
         
         <div class="input-group">
@@ -62,8 +74,21 @@
         <div id="balanceSection" style="display:none;">
             <label>Manual Balance (hrs)</label>
             <input type="number" id="startBalance" onchange="calculateLeave()">
-            <label>As of Date</label>
-            <input type="date" id="balanceDate" onchange="calculateLeave()">
+            
+            <label>As of Date (Quick Select)</label>
+            <div class="date-row">
+                <select id="balYear" onchange="syncBalDate()"></select>
+                <select id="balMonth" onchange="syncBalDate()">
+                    <option value="0">Jan</option><option value="1">Feb</option>
+                    <option value="2">Mar</option><option value="3">Apr</option>
+                    <option value="4">May</option><option value="5">Jun</option>
+                    <option value="6">Jul</option><option value="7">Aug</option>
+                    <option value="8">Sep</option><option value="9">Oct</option>
+                    <option value="10">Nov</option><option value="11">Dec</option>
+                </select>
+                <select id="balDay" onchange="syncBalDate()"></select>
+            </div>
+            <input type="hidden" id="balanceDate">
         </div>
     </div>
 
