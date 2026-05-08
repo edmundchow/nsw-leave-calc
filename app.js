@@ -2,6 +2,35 @@ const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 let nswHolidays = [];
 let db;
 
+function initDropdowns() {
+    const d = document.getElementById("hireDay");
+    const m = document.getElementById("hireMonth");
+    const y = document.getElementById("hireYear");
+
+    // ✅ SAFETY CHECK (this is what you are missing)
+    if (!d || !m || !y) {
+        console.warn("Dropdown elements missing in DOM");
+        return;
+    }
+
+    d.innerHTML = "";
+    m.innerHTML = "";
+    y.innerHTML = "";
+
+    for (let i = 1; i <= 31; i++) {
+        d.add(new Option(i, i));
+    }
+
+    MONTHS.forEach((x, i) => {
+        m.add(new Option(x, i));
+    });
+
+    const yr = new Date().getFullYear();
+    for (let i = yr; i > yr - 60; i--) {
+        y.add(new Option(i, i));
+    }
+}
+
 function populateDropdowns(prefix, startYear, endYear) {
     const dSel = document.getElementById(prefix + 'Day');
     const mSel = document.getElementById(prefix + 'Month');
