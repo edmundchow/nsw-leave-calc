@@ -3,148 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NSW Leave Tracker</title>
+    <title>NSW Leave Tracker & Exit Strategy</title>
     <link rel="manifest" href="manifest.json">
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; padding: 20px; max-width: 600px; margin: auto; background: #f0f2f5; color: #1c1e21; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
-        .input-group { margin-bottom: 15px; }
-        .section-title { font-weight: bold; color: #007bff; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; text-transform: uppercase; font-size: 0.8em; }
-        label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.9em; }
-        .date-row { display: flex; gap: 5px; }
-        select { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 1em; height: 45px; }
-        input[type="number"], select#calcMode { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; height: 45px; }
-        .results { background: #007bff; color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: center; }
-        .result-item { display: flex; flex-direction: column; justify-content: center; }
-        .result-val { font-size: 1.3em; font-weight: bold; display: block; }
-        .result-label { font-size: 0.7em; opacity: 0.9; text-transform: uppercase; margin-top: 4px; }
-        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        button { cursor: pointer; border: none; border-radius: 6px; font-weight: 600; transition: opacity 0.2s; }
-        button:active { opacity: 0.7; }
-        .btn-add { background: #28a745; color: white; width: 100%; padding: 12px; margin-top: 10px; }
-        .btn-opt { background: #6f42c1; color: white; width: 100%; padding: 12px; margin-top: 10px; }
-        .btn-del { background: #ff4d4f; color: white; padding: 5px 10px; font-size: 0.8em; }
-        .roster-grid { display: flex; gap: 8px; flex-wrap: wrap; }
-        .roster-grid label { display: flex; align-items: center; gap: 4px; background: #eee; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85em; }
-        .opt-item { background: #f8f9fa; border-left: 4px solid #6f42c1; padding: 10px; margin-top: 10px; border-radius: 4px; font-size: 0.9em; line-height: 1.4; }
-        .opt-tag { display: inline-block; background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-weight: bold; color: #6f42c1; margin-bottom: 5px; }
+        :root {
+            --primary: #0071eb;
+            --success: #28a745;
+            --warning: #ffc107;
+            --dark: #212529;
+            --light: #f8f9fa;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 10px;
+            background: #eee;
+            color: var(--dark);
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h2 { color: var(--primary); margin-top: 0; font-size: 1.4rem; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        label { font-size: 0.85rem; font-weight: bold; display: block; margin-bottom: 5px; }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px;
+            width: 100%;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+        .btn:active { background: #0056b3; }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+        .comparison-table th, .comparison-table td {
+            text-align: left;
+            padding: 12px 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .comparison-table th { background: #fdfdfd; color: #666; }
+        .highlight { color: var(--success); font-weight: bold; }
+        .meta-info { font-size: 0.75rem; color: #777; margin-top: 15px; line-height: 1.3; }
+        #resignationResults { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
-    <h1>NSW Leave Tracker</h1>
-    
-    <div class="results">
-        <div class="result-item">
-            <span class="result-val" id="resAnnual">0.00</span>
-            <span class="result-label">Annual (Hrs)</span>
-        </div>
-        <div class="result-item" style="border-left: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">
-            <span class="result-val" id="resDays">0.0</span>
-            <span class="result-label">Annual (Days)</span>
-        </div>
-        <div class="result-item">
-            <span class="result-val" id="resLSL">0.000</span>
-            <span class="result-label">LSL (Weeks)</span>
-        </div>
-    </div>
 
     <div class="card">
-        <div class="section-title">Employment Constants</div>
-        <div class="input-group">
-            <label>Initial Hire Date</label>
-            <div class="date-row">
-                <select id="hireDay" onchange="calculateLeave(); saveToDB();"></select>
-                <select id="hireMonth" onchange="calculateLeave(); saveToDB();"></select>
-                <select id="hireYear" onchange="calculateLeave(); saveToDB();"></select>
+        <h2>Current Accrual</h2>
+        <div class="grid">
+            <div>
+                <label>Annual Leave (Days)</label>
+                <input type="number" id="currentAL" value="20" step="0.1">
+            </div>
+            <div>
+                <label>Hourly Rate ($)</label>
+                <input type="number" id="hourlyRate" value="50">
             </div>
         </div>
-        <div class="input-group">
-            <label>Weekly Ordinary Hours</label>
-            <input type="number" id="weeklyHours" value="38" oninput="calculateLeave(); saveToDB();">
-        </div>
     </div>
 
+    <!-- Resignation Module Section -->
     <div class="card">
-        <div class="section-title">Annual Leave Calculation</div>
-        <div class="input-group">
-            <label>Mode</label>
-            <select id="calcMode" onchange="toggleMode();">
-                <option value="startDate">Continuous Since Hire Date</option>
-                <option value="knownBalance">Manual Balance Entry</option>
-            </select>
+        <h2>Exit Strategy Simulator</h2>
+        <p class="meta-info">Calculate the financial benefit of "Running Down" your leave vs. a cash payout.</p>
+        
+        <label>Intended Last Day of Work</label>
+        <div class="grid" style="grid-template-columns: 1fr 1fr 1.2fr;">
+            <select id="resigDay"></select>
+            <select id="resigMonth"></select>
+            <select id="resigYear"></select>
         </div>
-        <div id="balanceSection" style="display:none;">
-            <label>Balance Recorded Date</label>
-            <div class="date-row" style="margin-bottom: 10px;">
-                <select id="balanceDay" onchange="calculateLeave(); saveToDB();"></select>
-                <select id="balanceMonth" onchange="calculateLeave(); saveToDB();"></select>
-                <select id="balanceYear" onchange="calculateLeave(); saveToDB();"></select>
-            </div>
-            <label>Hours Balance at that Date</label>
-            <input type="number" id="startBalance" value="0" step="0.01" oninput="calculateLeave(); saveToDB();">
-        </div>
-    </div>
 
-    <div class="card">
-        <label>Working Roster</label>
-        <div class="roster-grid">
-            <label><input type="checkbox" id="sun" onchange="calculateLeave(); saveToDB();">S</label>
-            <label><input type="checkbox" id="mon" checked onchange="calculateLeave(); saveToDB();">M</label>
-            <label><input type="checkbox" id="tue" checked onchange="calculateLeave(); saveToDB();">T</label>
-            <label><input type="checkbox" id="wed" checked onchange="calculateLeave(); saveToDB();">W</label>
-            <label><input type="checkbox" id="thu" checked onchange="calculateLeave(); saveToDB();">T</label>
-            <label><input type="checkbox" id="fri" checked onchange="calculateLeave(); saveToDB();">F</label>
-            <label><input type="checkbox" id="sat" onchange="calculateLeave(); saveToDB();">S</label>
-        </div>
-    </div>
+        <button class="btn" onclick="runResignationSim()">Analyze Exit Benefits</button>
 
-    <div class="card">
-        <div class="section-title">Log Leave Taken</div>
-        <label>From</label>
-        <div class="date-row" style="margin-bottom: 10px;">
-            <select id="leaveStartDay"></select><select id="leaveStartMonth"></select><select id="leaveStartYear"></select>
+        <div id="resignationResults" style="display:none;">
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Benefit</th>
+                        <th>Lump Sum</th>
+                        <th>Run Down</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Final Termination</td>
+                        <td id="lumpDate">Immediate</td>
+                        <td id="runDate" class="highlight">-</td>
+                    </tr>
+                    <tr>
+                        <td>Super (11.5%)</td>
+                        <td>$0.00</td>
+                        <td id="runSuper" class="highlight">-</td>
+                    </tr>
+                    <tr>
+                        <td>Paid Days</td>
+                        <td id="lumpDays">-</td>
+                        <td id="runDays" class="highlight">-</td>
+                    </tr>
+                    <tr>
+                        <td>Holidays Gained</td>
+                        <td>None</td>
+                        <td id="runHolidays">-</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p class="meta-info">
+                <strong>Why is 'Run Down' higher?</strong> You remain employed while on leave, meaning you continue to accrue more leave and receive mandatory Superannuation contributions on every hour paid.
+            </p>
         </div>
-        <label>To</label>
-        <div class="date-row" style="margin-bottom: 10px;">
-            <select id="leaveEndDay"></select><select id="leaveEndMonth"></select><select id="leaveEndYear"></select>
-        </div>
-        <input type="text" id="leaveNote" placeholder="e.g. Vacation" style="width:100%; padding:10px; border-radius:6px; border:1px solid #ddd; box-sizing:border-box;">
-        <button class="btn-add" onclick="addHistoryEntry()">Add Leave Period</button>
-        <div id="historyList" style="margin-top:15px;"></div>
-    </div>
-
-    <div class="card">
-        <div class="section-title">Leave Optimizer</div>
-        <p style="font-size: 0.8em; color: #666;">Scan for high-value holiday clusters.</p>
-        <div class="input-group">
-            <label>Calculate Until:</label>
-            <div class="date-row">
-                <select id="optDay"></select>
-                <select id="optMonth"></select>
-                <select id="optYear"></select>
-            </div>
-        </div>
-        <button class="btn-opt" onclick="optimizeLeave()">Find Best Leave Dates</button>
-        <div id="optimizationResults" style="margin-top: 15px;"></div>
     </div>
 
     <script src="app.js"></script>
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').then(reg => {
-                    reg.update();
-                    reg.onupdatefound = () => {
-                        const installingWorker = reg.installing;
-                        installingWorker.onstatechange = () => {
-                            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                window.location.reload();
-                            }
-                        };
-                    };
-                });
+        // Initialize Dropdowns
+        const days = Array.from({length: 31}, (_, i) => i + 1);
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const years = [2026, 2027];
+
+        const populate = (id, data) => {
+            const el = document.getElementById(id);
+            data.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item;
+                opt.textContent = item;
+                el.appendChild(opt);
             });
-        }
+        };
+
+        populate('resigDay', days);
+        populate('resigMonth', months);
+        populate('resigYear', years);
     </script>
 </body>
 </html>
