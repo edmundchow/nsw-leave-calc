@@ -46,11 +46,11 @@ header h1 { font-size: 24px; margin-bottom: 5px; }
 .input-group { margin-bottom: 15px; }
 label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; margin-bottom: 5px; }
 
-/* DATE ROW STYLING */
 .date-row {
     display: grid;
-    grid-template-columns: 2fr 1.5fr 1fr;
+    grid-template-columns: 1fr 1.5fr 1.2fr;
     gap: 8px;
+    margin-bottom: 10px;
 }
 
 input, select {
