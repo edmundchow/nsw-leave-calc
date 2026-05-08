@@ -1,6 +1,6 @@
 /**
  * NSW Leave Calculator - Core Logic
- * Fixed: Resignation Strategy now calculates projected accrual based on Target Last Day
+ * Integrated: IndexedDB Holiday Caching, Fixed Resignation Strategy, & Smart Optimizer
  */
 
 // 1. GLOBAL VARIABLES
@@ -39,27 +39,55 @@ function setDropdownDate(prefix, dateStr) {
     if (yEl) yEl.value = date.getFullYear();
 }
 
-// 3. HOLIDAY DATA
-async function fetchHolidays() {
+// 3. SMART HOLIDAY SYNC (Local-First)
+async function syncHolidays() {
+    // 1. Load from cache immediately for speed
+    const tx = db.transaction("holidayData", "readonly");
+    const store = tx.objectStore("holidayData");
+    const getRequest = store.get("nsw_list");
+
+    getRequest.onsuccess = () => {
+        if (getRequest.result) {
+            nswHolidays = getRequest.result;
+            calculateLeave();
+        }
+        // 2. Try to update from API in the background
+        attemptNetworkFetch();
+    };
+}
+
+async function attemptNetworkFetch() {
     try {
         const apiUrl = 'https://data.gov.au/data/api/3/action/datastore_search?resource_id=d256f282-ba27-4c64-ade7-0d7ad2530554&limit=1000';
         const response = await fetch(apiUrl);
         const data = await response.json();
-        nswHolidays = data.result.records
+        
+        const freshHolidays = data.result.records
             .filter(r => r.Jurisdiction && r.Jurisdiction.toLowerCase() === 'nsw')
             .map(r => { 
                 const d = r.Date.toString(); 
                 return `${d.substring(0,4)}-${d.substring(4,6)}-${d.substring(6,8)}`; 
             });
+
+        if (freshHolidays.length > 0) {
+            nswHolidays = freshHolidays;
+            const tx = db.transaction("holidayData", "readwrite");
+            tx.objectStore("holidayData").put(freshHolidays, "nsw_list");
+            calculateLeave();
+        }
     } catch (e) {
-        nswHolidays = ["2026-01-01", "2026-01-26", "2026-04-03", "2026-04-06", "2026-04-25", "2026-06-08", "2026-10-05", "2026-12-25", "2026-12-28"];
+        console.warn("Using offline holiday cache.");
     }
-    calculateLeave();
 }
 
 // 4. DATABASE & INITIALIZATION
-const dbRequest = indexedDB.open("NSWLeaveTracker", 1);
-dbRequest.onupgradeneeded = (e) => e.target.result.createObjectStore("userData");
+const dbRequest = indexedDB.open("NSWLeaveTracker", 2); // Version 2 for new Store
+
+dbRequest.onupgradeneeded = (e) => {
+    const database = e.target.result;
+    if (!database.objectStoreNames.contains("userData")) database.createObjectStore("userData");
+    if (!database.objectStoreNames.contains("holidayData")) database.createObjectStore("holidayData");
+};
 
 dbRequest.onsuccess = (e) => {
     db = e.target.result;
@@ -68,21 +96,21 @@ dbRequest.onsuccess = (e) => {
     
     populateDropdowns('hire', 1995, curYear + 1);
     populateDropdowns('balance', 1995, curYear + 1);
-    populateDropdowns('leaveStart', curYear - 1, curYear + 2);
-    populateDropdowns('leaveEnd', curYear - 1, curYear + 2);
-    populateDropdowns('opt', curYear, curYear + 2);
-    populateDropdowns('resig', curYear, curYear + 2); 
+    populateDropdowns('leaveStart', curYear - 1, curYear + 3);
+    populateDropdowns('leaveEnd', curYear - 1, curYear + 3);
+    populateDropdowns('opt', curYear, curYear + 3);
+    populateDropdowns('resig', curYear, curYear + 3); 
 
     setDropdownDate('resig', today.toISOString());
     document.getElementById('optDay').value = 31;
     document.getElementById('optMonth').value = 11;
     document.getElementById('optYear').value = curYear + 1;
 
-    fetchHolidays();
+    syncHolidays();
     loadFromDB();
 };
 
-// 5. CORE ACCRUAL
+// 5. CORE CALCULATION
 function calculateLeave() {
     const mode = document.getElementById('calcMode').value;
     const hireDate = getDropdownDate('hire');
@@ -110,7 +138,7 @@ function calculateLeave() {
     document.getElementById('resLSL').innerText = Math.max(0, (serviceWeeksTotal / 52) * 0.8667).toFixed(3);
 }
 
-// 6. FIXED RESIGNATION STRATEGY
+// 6. RESIGNATION STRATEGY (Fixed for Target Date)
 function calculateResignation() {
     const rate = parseFloat(document.getElementById('hourlyRate').value) || 0;
     const weeklyHours = parseFloat(document.getElementById('weeklyHours').value) || 38;
@@ -118,23 +146,19 @@ function calculateResignation() {
     const targetLastDay = getDropdownDate('resig');
     const today = new Date();
     
-    if (rate <= 0 || currentBalance <= 0) {
-        document.getElementById('resignationResults').innerHTML = `<p style="color:red;">Enter rate and check balance.</p>`;
+    if (rate <= 0) {
+        document.getElementById('resignationResults').innerHTML = `<p style="color:red;">Enter hourly rate first.</p>`;
         return;
     }
 
-    // A: Calculate Accrual between TODAY and TARGET LAST DAY
     let weeksUntilExit = (targetLastDay - today) / (1000 * 60 * 60 * 24 * 7);
-    if (weeksUntilExit < 0) weeksUntilExit = 0; // If date is in the past
+    if (weeksUntilExit < 0) weeksUntilExit = 0;
     
     const projectedAccrual = weeksUntilExit * (weeklyHours * (4 / 52));
     const balanceAtExit = currentBalance + projectedAccrual;
 
-    // B: Scenario 1 - Payout at Exit
     const payoutGross = balanceAtExit * rate;
     const superLost = payoutGross * 0.115; 
-
-    // C: Scenario 2 - Run-Down starting from Exit
     const weeksToRunDown = balanceAtExit / weeklyHours;
     const bonusAccrualHours = weeksToRunDown * (weeklyHours * (4 / 52));
     const bonusValue = bonusAccrualHours * rate;
@@ -142,23 +166,53 @@ function calculateResignation() {
     const totalAdvantage = superLost + bonusValue;
 
     document.getElementById('resignationResults').innerHTML = `
-        <div style="background:#f0f7ff; border:1px solid #007bff; padding:15px; border-radius:8px; margin-top:10px;">
+        <div style="background:#f0f7ff; border:1px solid #007bff; padding:15px; border-radius:8px;">
             <strong style="color:#007bff;">Exit Strategy: ${targetLastDay.toLocaleDateString('en-AU')}</strong>
-            <p>📈 <b>Projected Accrual to Exit:</b> +${projectedAccrual.toFixed(2)} hrs</p>
-            <p>💰 <b>Est. Payout at Exit:</b> $${payoutGross.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
-            <p>⚠️ <b>Super Lost if Paid Out:</b> <span style="color:#dc3545;">-$${superLost.toFixed(2)}</span></p>
-            <p>🎁 <b>Extra Accrual (Run-down):</b> +${bonusAccrualHours.toFixed(2)} hrs ($${bonusValue.toFixed(2)})</p>
+            <p>📈 <b>Accrual to Exit:</b> +${projectedAccrual.toFixed(2)} hrs</p>
+            <p>💰 <b>Est. Payout:</b> $${payoutGross.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+            <p>⚠️ <b>Super Lost (if paid out):</b> -$${superLost.toFixed(2)}</p>
+            <p>🎁 <b>Bonus if taken as leave:</b> +${bonusAccrualHours.toFixed(2)} hrs ($${bonusValue.toFixed(2)})</p>
             <hr>
-            <p style="font-size:1.1em; color:#28a745;"><b>Total Strategy Benefit: +$${totalAdvantage.toLocaleString()}</b></p>
-            <small style="color:#666;">This is the extra value gained by taking leave after your last day instead of a cash payout.</small>
+            <p style="font-size:1.1em; color:#28a745;"><b>Total "Run-Down" Gain: +$${totalAdvantage.toLocaleString()}</b></p>
         </div>`;
 }
 
-// 7. DATA PERSISTENCE
+// 7. LEAVE OPTIMIZER (Smarter Logic)
+function optimizeLeave() {
+    const resultsDiv = document.getElementById('optimizationResults');
+    resultsDiv.innerHTML = 'Analyzing holidays...';
+    
+    if (nswHolidays.length === 0) {
+        resultsDiv.innerHTML = "Syncing holidays... try again in a moment.";
+        return;
+    }
+
+    const tips = [];
+    const today = new Date();
+    const endDate = getDropdownDate('opt');
+    const hData = nswHolidays.map(h => new Date(h)).sort((a,b) => a-b);
+
+    hData.forEach(h => {
+        if (h < today || h > endDate) return;
+        const day = h.getDay();
+        const dStr = h.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+
+        if (day === 2) tips.push({ title: `Bridge: ${dStr}`, desc: `Take Monday off for 4 days total.`, eff: "4-for-1" });
+        else if (day === 4) tips.push({ title: `Bridge: ${dStr}`, desc: `Take Friday off for 4 days total.`, eff: "4-for-1" });
+        else if (day === 3) tips.push({ title: `Mid-Week: ${dateStr}`, desc: `Take 2 days off for a 5-day break.`, eff: "5-for-2" });
+        else if (day === 1 || day === 5) tips.push({ title: `Long Weekend: ${dStr}`, desc: `Standard 3-day break.`, eff: "Relax" });
+    });
+
+    resultsDiv.innerHTML = tips.map(t => `
+        <div class="opt-item">
+            <span class="opt-tag">${t.title}</span><br>${t.desc}<br><small><b>${t.eff}</b></small>
+        </div>`).join('') || "No significant clusters found.";
+}
+
+// 8. PERSISTENCE & HISTORY
 function toggleMode() {
     const mode = document.getElementById('calcMode').value;
-    const section = document.getElementById('balanceSection');
-    if (section) section.style.display = mode === 'knownBalance' ? 'block' : 'none';
+    document.getElementById('balanceSection').style.display = mode === 'knownBalance' ? 'block' : 'none';
     calculateLeave(); 
     saveToDB();
 }
@@ -196,7 +250,6 @@ function loadFromDB() {
     };
 }
 
-// 8. HISTORY & OPTIMIZER (Simplified for brevity)
 function addHistoryEntry() {
     const start = getDropdownDate('leaveStart');
     const end = getDropdownDate('leaveEnd');
@@ -215,20 +268,4 @@ function appendHistoryDOM(h) {
     div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount;
     div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs)</span><button class="btn-del" onclick="this.parentElement.remove(); saveToDB(); calculateLeave();">Delete</button>`;
     document.getElementById('historyList').appendChild(div);
-}
-
-function optimizeLeave() {
-    const resultsDiv = document.getElementById('optimizationResults');
-    resultsDiv.innerHTML = 'Analyzing...';
-    if (nswHolidays.length === 0) return;
-    const tips = [];
-    const today = new Date();
-    const hData = nswHolidays.map(h => new Date(h)).sort((a,b) => a-b);
-    hData.forEach(h => {
-        if (h < today) return;
-        const day = h.getDay();
-        const dStr = h.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
-        if (day === 2 || day === 4) tips.push({ title: `Bridge: ${dStr}`, desc: `Take a bridge day for 4 days off.`, mult: "4 for 1" });
-    });
-    resultsDiv.innerHTML = tips.map(t => `<div class="opt-item"><span class="opt-tag">${t.title}</span><br>${t.desc}</div>`).join('') || "No clusters found.";
 }
