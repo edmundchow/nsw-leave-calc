@@ -1,77 +1,115 @@
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/**
+ * Project: NSW Leave Tracker (Phase 2)
+ * Core Logic Engine & Resignation Module
+ */
 
-window.onload = function() {
-    ["hire", "bal", "opt", "resig"].forEach(prefix => {
-        if(document.getElementById(prefix + "Day")) setupDropdowns(prefix);
-    });
+// Configuration Constants
+const ANNUAL_LEAVE_WEEKS = 4;
+const WEEKLY_HOURS = 38;
+const SUPER_RATE = 0.115; // 11.5%
+const WEEKLY_ACCRUAL = (ANNUAL_LEAVE_WEEKS * 5) / 52.1429; // ~0.3835 days per week
+
+// Fallback NSW Holidays (If API fails)
+const publicHolidays = [
+    { date: "2026-01-01", name: "New Year's Day" },
+    { date: "2026-01-26", name: "Australia Day" },
+    { date: "2026-04-03", name: "Good Friday" },
+    { date: "2026-04-06", name: "Easter Monday" },
+    { date: "2026-04-25", name: "Anzac Day" },
+    { date: "2026-06-08", name: "King's Birthday" },
+    { date: "2026-10-05", name: "Labour Day" },
+    { date: "2026-12-25", name: "Christmas Day" },
+    { date: "2026-12-26", name: "Boxing Day" }
+];
+
+/**
+ * Main Simulator Function
+ */
+function calculateResignationScenario(currentBalanceDays, hourlyRate) {
+    let simulatedBalance = parseFloat(currentBalanceDays);
+    let currentDate = getSelectedResignationDate();
+    let totalWorkDaysPaid = 0;
+    let holidaysHit = 0;
+
+    // Daily Accrual Rate (Leave earned per day on books)
+    const dailyAccrual = WEEKLY_ACCRUAL / 5;
+
+    // Simulation Loop: Day-by-day depletion
+    while (simulatedBalance > 0.001) {
+        currentDate.setDate(currentDate.getDate() + 1);
+
+        // 1. Accrue new leave while technically on leave
+        simulatedBalance += dailyAccrual;
+
+        // 2. Check for Weekdays (Mon-Fri)
+        const dayOfWeek = currentDate.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            
+            // 3. Public Holiday Check
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const isHoliday = publicHolidays.some(h => h.date === dateStr);
+
+            if (isHoliday) {
+                holidaysHit++;
+                // Paid holiday: No deduction from balance
+            } else {
+                simulatedBalance -= 1;
+            }
+            totalWorkDaysPaid++;
+        }
+    }
+
+    // Financial Outcomes
+    const hoursPaid = totalWorkDaysPaid * (WEEKLY_HOURS / 5);
+    const grossTotal = hoursPaid * hourlyRate;
+    const superGained = grossTotal * SUPER_RATE;
+
+    return {
+        finalTerminationDate: formatDate(currentDate),
+        totalDaysPaid: totalWorkDaysPaid.toFixed(2),
+        publicHolidaysGained: holidaysHit,
+        extraSuper: superGained.toLocaleString('en-AU', { style: 'currency', currency: 'AUD' }),
+        lumpSumDays: currentBalanceDays
+    };
+}
+
+/**
+ * UI Trigger Logic
+ */
+window.runResignationSim = function() {
+    const al = parseFloat(document.getElementById('currentAL').value) || 0;
+    const rate = parseFloat(document.getElementById('hourlyRate').value) || 0;
     
-    const today = new Date();
-    setDropdownDate("hire", new Date(today.getFullYear() - 1, today.getMonth(), today.getDate())); // Default 1 year ago
-    
-    document.querySelectorAll('.chip input').forEach(input => {
-        input.addEventListener('change', calculateLeave);
-    });
+    if (al <= 0) {
+        alert("Please enter a valid Leave Balance.");
+        return;
+    }
+
+    const results = calculateResignationScenario(al, rate);
+
+    // Update the UI
+    document.getElementById('resignationResults').style.display = 'block';
+    document.getElementById('runDate').textContent = results.finalTerminationDate;
+    document.getElementById('runSuper').textContent = results.extraSuper;
+    document.getElementById('lumpDays').textContent = `${results.lumpSumDays} Days`;
+    document.getElementById('runDays').textContent = `${results.totalDaysPaid} Days`;
+    document.getElementById('runHolidays').textContent = `${results.publicHolidaysGained} Day(s)`;
 };
 
-function setupDropdowns(prefix) {
-    const dSel = document.getElementById(prefix + "Day");
-    const mSel = document.getElementById(prefix + "Month");
-    const ySel = document.getElementById(prefix + "Year");
-    const currentYear = new Date().getFullYear();
-
-    for (let i = 1; i <= 31; i++) dSel.add(new Option(i, i));
-    MONTHS.forEach((m, idx) => mSel.add(new Option(m, idx)));
-    for (let i = currentYear + 10; i >= currentYear - 40; i--) ySel.add(new Option(i, i));
+/**
+ * Helper: Parse UI Dropdowns
+ */
+function getSelectedResignationDate() {
+    const d = document.getElementById('resigDay').value;
+    const m = document.getElementById('resigMonth').value;
+    const y = document.getElementById('resigYear').value;
+    const monthIndex = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].indexOf(m);
+    return new Date(y, monthIndex, d);
 }
 
-function setDropdownDate(prefix, date) {
-    const d = document.getElementById(prefix + "Day");
-    if(!d) return;
-    document.getElementById(prefix + "Day").value = date.getDate();
-    document.getElementById(prefix + "Month").value = date.getMonth();
-    document.getElementById(prefix + "Year").value = date.getFullYear();
-    syncDate(prefix);
-}
-
-function syncDate(prefix) {
-    const d = parseInt(document.getElementById(prefix + "Day").value);
-    const m = parseInt(document.getElementById(prefix + "Month").value);
-    const y = parseInt(document.getElementById(prefix + "Year").value);
-    
-    const dateObj = new Date(y, m, d);
-    document.getElementById(prefix + "Date").value = dateObj.toISOString().split('T')[0];
-    calculateLeave();
-}
-
-function calculateLeave() {
-    const hireDateStr = document.getElementById('hireDate').value;
-    const weeklyHours = parseFloat(document.getElementById('weeklyHours').value) || 38;
-    
-    let workingDays = 0;
-    for (let i = 0; i < 7; i++) { if (document.getElementById(`day-${i}`).checked) workingDays++; }
-    const hrsPerDay = weeklyHours / (workingDays || 5);
-
-    const today = new Date();
-    const hireDate = new Date(hireDateStr);
-    const diffWeeks = (today - hireDate) / (1000 * 60 * 60 * 24 * 7);
-
-    // Annual Leave (4 weeks per year)
-    const annualHrs = diffWeeks * (4 / 52) * weeklyHours;
-    
-    // NSW LSL (8.6667 weeks after 10 years)
-    const lslWeeks = (diffWeeks / 52) * 0.8667;
-
-    // UPDATE THE HEADER
-    document.getElementById('resAnnual').innerText = Math.max(0, annualHrs).toFixed(2);
-    document.getElementById('resDays').innerText = Math.max(0, annualHrs / hrsPerDay).toFixed(1);
-    document.getElementById('resLSL').innerText = Math.max(0, lslWeeks).toFixed(3);
-}
-
-function toggleMode() {
-    const mode = document.getElementById('calcMode').value;
-    document.getElementById('balanceSection').style.display = (mode === 'knownBalance') ? 'block' : 'none';
-}
-
-function optimizeLeave() {
-    document.getElementById('optimizationResults').innerHTML = "<p style='margin-top:10px;'>Checking NSW Holidays...</p>";
+/**
+ * Helper: Pretty Date
+ */
+function formatDate(date) {
+    return date.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
 }
