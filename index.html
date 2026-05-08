@@ -47,18 +47,11 @@
         </div>
         
         <div class="input-group">
-            <label>Date of Hire (Quick Select)</label>
+            <label>Date of Hire (DD MMM YYYY)</label>
             <div class="date-row">
-                <select id="hireYear" onchange="syncHireDate()"></select>
-                <select id="hireMonth" onchange="syncHireDate()">
-                    <option value="0">Jan</option><option value="1">Feb</option>
-                    <option value="2">Mar</option><option value="3">Apr</option>
-                    <option value="4">May</option><option value="5">Jun</option>
-                    <option value="6">Jul</option><option value="7">Aug</option>
-                    <option value="8">Sep</option><option value="9">Oct</option>
-                    <option value="10">Nov</option><option value="11">Dec</option>
-                </select>
-                <select id="hireDay" onchange="syncHireDate()"></select>
+                <select id="hireDay" onchange="syncDate('hire')"></select>
+                <select id="hireMonth" onchange="syncDate('hire')"></select>
+                <select id="hireYear" onchange="syncDate('hire')"></select>
             </div>
             <input type="hidden" id="hireDate">
         </div>
@@ -75,18 +68,11 @@
             <label>Manual Balance (hrs)</label>
             <input type="number" id="startBalance" onchange="calculateLeave()">
             
-            <label>As of Date (Quick Select)</label>
+            <label>As of Date (DD MMM YYYY)</label>
             <div class="date-row">
-                <select id="balYear" onchange="syncBalDate()"></select>
-                <select id="balMonth" onchange="syncBalDate()">
-                    <option value="0">Jan</option><option value="1">Feb</option>
-                    <option value="2">Mar</option><option value="3">Apr</option>
-                    <option value="4">May</option><option value="5">Jun</option>
-                    <option value="6">Jul</option><option value="7">Aug</option>
-                    <option value="8">Sep</option><option value="9">Oct</option>
-                    <option value="10">Nov</option><option value="11">Dec</option>
-                </select>
-                <select id="balDay" onchange="syncBalDate()"></select>
+                <select id="balDay" onchange="syncDate('bal')"></select>
+                <select id="balMonth" onchange="syncDate('bal')"></select>
+                <select id="balYear" onchange="syncDate('bal')"></select>
             </div>
             <input type="hidden" id="balanceDate">
         </div>
@@ -95,14 +81,24 @@
     <div class="card purple-card">
         <div class="card-title">🚀 Holiday Optimizer</div>
         <p class="small-text">Maximize your time off until:</p>
-        <input type="date" id="optDate" onchange="optimizeLeave()">
+        <div class="date-row">
+            <select id="optDay" onchange="syncDate('opt')"></select>
+            <select id="optMonth" onchange="syncDate('opt')"></select>
+            <select id="optYear" onchange="syncDate('opt')"></select>
+        </div>
+        <input type="hidden" id="optDate">
         <div id="optimizationResults" class="results-area"></div>
     </div>
 
     <div class="card blue-card">
         <div class="card-title">💼 Exit Strategy</div>
         <p class="small-text">Projected payout if you leave on:</p>
-        <input type="date" id="resigDate" onchange="calculateResignation()">
+        <div class="date-row">
+            <select id="resigDay" onchange="syncDate('resig')"></select>
+            <select id="resigMonth" onchange="syncDate('resig')"></select>
+            <select id="resigYear" onchange="syncDate('resig')"></select>
+        </div>
+        <input type="hidden" id="resigDate">
         <div id="resignationResults" class="results-area"></div>
     </div>
 
