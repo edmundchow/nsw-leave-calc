@@ -1,6 +1,7 @@
 /**
  * NSW Leave Calculator - Core Logic
- * Integrated: IndexedDB Holiday Caching, Fixed Resignation Strategy, & Smart Optimizer
+ * Version: 3.0
+ * Features: IndexedDB Versioning, Dynamic Holiday Fallbacks, & Smart Resignation Strategy
  */
 
 // 1. GLOBAL VARIABLES
@@ -39,14 +40,25 @@ function setDropdownDate(prefix, dateStr) {
     if (yEl) yEl.value = date.getFullYear();
 }
 
-// 3. SMART HOLIDAY SYNC (Local-First)
+// 3. SMART HOLIDAY SYNC (Local-First + Dynamic Fallback)
+function generateStandardHolidays(year) {
+    // Generates fixed-date public holidays for any year [cite: 140]
+    return [
+        `${year}-01-01`, // New Year's
+        `${year}-01-26`, // Australia Day
+        `${year}-04-25`, // Anzac Day
+        `${year}-12-25`, // Christmas
+        `${year}-12-26`  // Boxing Day
+    ];
+}
+
 async function syncHolidays() {
-    // EMERGENCY FALLBACK (2026-2027)
-    // This ensures the app works immediately if API/DB fail
-    const fallbackHolidays = [
-        "2026-01-01", "2026-01-26", "2026-04-03", "2026-04-06", "2026-04-25", 
-        "2026-06-08", "2026-10-05", "2026-12-25", "2026-12-28", "2027-01-01", 
-        "2027-01-26", "2027-03-26", "2027-03-29", "2027-04-26", "2027-06-14"
+    const curYear = new Date().getFullYear();
+    // Pre-populate with standard holidays for the next 3 years [cite: 140]
+    let dynamicFallback = [
+        ...generateStandardHolidays(curYear),
+        ...generateStandardHolidays(curYear + 1),
+        ...generateStandardHolidays(curYear + 2)
     ];
 
     try {
@@ -58,20 +70,18 @@ async function syncHolidays() {
             if (getRequest.result && getRequest.result.length > 0) {
                 nswHolidays = getRequest.result;
             } else {
-                // If DB is empty, use fallback while waiting for API
-                nswHolidays = fallbackHolidays;
+                nswHolidays = dynamicFallback;
             }
             calculateLeave();
             attemptNetworkFetch();
         };
-
+        
         getRequest.onerror = () => {
-            nswHolidays = fallbackHolidays;
+            nswHolidays = dynamicFallback;
             calculateLeave();
         };
     } catch (e) {
-        // If the Database store doesn't exist yet, use fallback
-        nswHolidays = fallbackHolidays;
+        nswHolidays = dynamicFallback;
         calculateLeave();
         attemptNetworkFetch();
     }
@@ -97,12 +107,12 @@ async function attemptNetworkFetch() {
             calculateLeave();
         }
     } catch (e) {
-        console.warn("Using offline holiday cache.");
+        console.warn("Offline or API blocked. Using cache.");
     }
 }
 
 // 4. DATABASE & INITIALIZATION
-const dbRequest = indexedDB.open("NSWLeaveTracker", 2); // Version 2 for new Store
+const dbRequest = indexedDB.open("NSWLeaveTracker", 2); // Version 2 for holiday cache store
 
 dbRequest.onupgradeneeded = (e) => {
     const database = e.target.result;
@@ -117,10 +127,10 @@ dbRequest.onsuccess = (e) => {
     
     populateDropdowns('hire', 1995, curYear + 1);
     populateDropdowns('balance', 1995, curYear + 1);
-    populateDropdowns('leaveStart', curYear - 1, curYear + 3);
-    populateDropdowns('leaveEnd', curYear - 1, curYear + 3);
-    populateDropdowns('opt', curYear, curYear + 3);
-    populateDropdowns('resig', curYear, curYear + 3); 
+    populateDropdowns('leaveStart', curYear - 1, curYear + 5);
+    populateDropdowns('leaveEnd', curYear - 1, curYear + 5);
+    populateDropdowns('opt', curYear, curYear + 5);
+    populateDropdowns('resig', curYear, curYear + 5); 
 
     setDropdownDate('resig', today.toISOString());
     document.getElementById('optDay').value = 31;
@@ -159,7 +169,7 @@ function calculateLeave() {
     document.getElementById('resLSL').innerText = Math.max(0, (serviceWeeksTotal / 52) * 0.8667).toFixed(3);
 }
 
-// 6. RESIGNATION STRATEGY (Fixed for Target Date)
+// 6. RESIGNATION STRATEGY (Fixed for Target Date) [cite: 426]
 function calculateResignation() {
     const rate = parseFloat(document.getElementById('hourlyRate').value) || 0;
     const weeklyHours = parseFloat(document.getElementById('weeklyHours').value) || 38;
@@ -192,16 +202,16 @@ function calculateResignation() {
             <p>📈 <b>Accrual to Exit:</b> +${projectedAccrual.toFixed(2)} hrs</p>
             <p>💰 <b>Est. Payout:</b> $${payoutGross.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
             <p>⚠️ <b>Super Lost (if paid out):</b> -$${superLost.toFixed(2)}</p>
-            <p>🎁 <b>Bonus if taken as leave:</b> +${bonusAccrualHours.toFixed(2)} hrs ($${bonusValue.toFixed(2)})</p>
+            <p>🎁 <b>Extra Accrual (Run-down):</b> +${bonusAccrualHours.toFixed(2)} hrs ($${bonusValue.toFixed(2)})</p>
             <hr>
-            <p style="font-size:1.1em; color:#28a745;"><b>Total "Run-Down" Gain: +$${totalAdvantage.toLocaleString()}</b></p>
+            <p style="font-size:1.1em; color:#28a745;"><b>Total "Take Leave" Gain: +$${totalAdvantage.toLocaleString()}</b></p>
         </div>`;
 }
 
-// 7. LEAVE OPTIMIZER (Smarter Logic)
+// 7. LEAVE OPTIMIZER (Smarter Logic) [cite: 517]
 function optimizeLeave() {
     const resultsDiv = document.getElementById('optimizationResults');
-    resultsDiv.innerHTML = 'Analyzing holidays...';
+    resultsDiv.innerHTML = 'Analyzing...';
     
     if (nswHolidays.length === 0) {
         resultsDiv.innerHTML = "Syncing holidays... try again in a moment.";
@@ -218,16 +228,16 @@ function optimizeLeave() {
         const day = h.getDay();
         const dStr = h.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
 
-        if (day === 2) tips.push({ title: `Bridge: ${dStr}`, desc: `Take Monday off for 4 days total.`, eff: "4-for-1" });
-        else if (day === 4) tips.push({ title: `Bridge: ${dStr}`, desc: `Take Friday off for 4 days total.`, eff: "4-for-1" });
-        else if (day === 3) tips.push({ title: `Mid-Week: ${dateStr}`, desc: `Take 2 days off for a 5-day break.`, eff: "5-for-2" });
-        else if (day === 1 || day === 5) tips.push({ title: `Long Weekend: ${dStr}`, desc: `Standard 3-day break.`, eff: "Relax" });
+        if (day === 2) tips.push({ title: `Bridge: ${dStr}`, desc: `Take Monday off for a 4-day break.`, eff: "4-for-1" });
+        else if (day === 4) tips.push({ title: `Bridge: ${dStr}`, desc: `Take Friday off for a 4-day break.`, eff: "4-for-1" });
+        else if (day === 3) tips.push({ title: `Mid-Week: ${dStr}`, desc: `Take 2 days off for a 5-day break.`, eff: "5-for-2" });
+        else if (day === 1 || day === 5) tips.push({ title: `Long Weekend: ${dStr}`, desc: `Standard 3-day weekend.`, eff: "Relax" });
     });
 
     resultsDiv.innerHTML = tips.map(t => `
-        <div class="opt-item">
-            <span class="opt-tag">${t.title}</span><br>${t.desc}<br><small><b>${t.eff}</b></small>
-        </div>`).join('') || "No significant clusters found.";
+        <div class="opt-item" style="border-left:4px solid #6f42c1; background:#f8f0ff; padding:10px; margin-bottom:8px; border-radius:4px;">
+            <span class="opt-tag" style="color:#6f42c1; font-weight:bold;">${t.title}</span><br>${t.desc}<br><small><b>${t.eff}</b></small>
+        </div>`).join('') || "No significant clusters found in this period.";
 }
 
 // 8. PERSISTENCE & HISTORY
