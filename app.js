@@ -1,7 +1,9 @@
+// 1. GLOBAL VARIABLES (RETAINED)
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 let nswHolidays = [];
 let db;
 
+// 2. CORE UTILITY FUNCTIONS (RETAINED)
 function populateDropdowns(prefix, startYear, endYear) {
     const dSel = document.getElementById(prefix + 'Day');
     const mSel = document.getElementById(prefix + 'Month');
@@ -29,6 +31,7 @@ function setDropdownDate(prefix, dateStr) {
     document.getElementById(prefix + 'Year').value = date.getFullYear();
 }
 
+// 3. HOLIDAY FETCHING (RETAINED & EXPANDED FALLBACK)
 async function fetchHolidays() {
     try {
         const apiUrl = 'https://data.gov.au/data/api/3/action/datastore_search?resource_id=d256f282-ba27-4c64-ade7-0d7ad2530554&limit=1000';
@@ -41,7 +44,6 @@ async function fetchHolidays() {
                 return `${d.substring(0,4)}-${d.substring(4,6)}-${d.substring(6,8)}`; 
             });
     } catch (e) {
-        // Robust Fallback for 2026 & 2027
         nswHolidays = [
             "2026-01-01", "2026-01-26", "2026-04-03", "2026-04-06", "2026-04-25", "2026-06-08", "2026-10-05", "2026-12-25", "2026-12-28",
             "2027-01-01", "2027-01-26", "2027-03-26", "2027-03-29", "2027-04-26", "2027-06-14", "2027-10-04", "2027-12-25", "2027-12-27", "2027-12-28"
@@ -50,6 +52,7 @@ async function fetchHolidays() {
     calculateLeave();
 }
 
+// 4. DATABASE & INITIALIZATION (RETAINED + NEW PHASE 2 DROPDOWNS)
 const dbRequest = indexedDB.open("NSWLeaveTracker", 1);
 dbRequest.onupgradeneeded = (e) => e.target.result.createObjectStore("userData");
 dbRequest.onsuccess = (e) => {
@@ -61,15 +64,51 @@ dbRequest.onsuccess = (e) => {
     populateDropdowns('leaveStart', curYear - 1, curYear + 2);
     populateDropdowns('leaveEnd', curYear - 1, curYear + 2);
     populateDropdowns('opt', curYear, curYear + 2);
+    
+    // NEW Phase 2 Dropdowns
+    populateDropdowns('resig', curYear, curYear + 2);
 
     document.getElementById('optDay').value = 31;
-    document.getElementById('optMonth').value = 11; // December
+    document.getElementById('optMonth').value = 11;
     document.getElementById('optYear').value = curYear + 1;
 
     fetchHolidays();
     loadFromDB();
 };
 
+// 5. PHASE 2: RESIGNATION LOGIC (NEWLY INTEGRATED)
+function calculateResignation() {
+    const rate = parseFloat(document.getElementById('hourlyRate').value) || 0;
+    const weeklyHours = parseFloat(document.getElementById('weeklyHours').value) || 38;
+    const annualBalance = parseFloat(document.getElementById('resAnnual').innerText) || 0;
+    
+    if (rate <= 0 || annualBalance <= 0) {
+        document.getElementById('resignationResults').innerHTML = `<p style="color:red;">Please enter a rate and ensure you have a leave balance.</p>`;
+        return;
+    }
+
+    // Lump Sum Payout (No Super)
+    const payoutGross = annualBalance * rate;
+    const superLost = payoutGross * 0.115; 
+
+    // Run-Down (Taking Leave in Service)
+    const weeksOfLeave = annualBalance / weeklyHours;
+    const bonusAccrualHours = weeksOfLeave * (weeklyHours * (4 / 52)); 
+    const bonusValue = bonusAccrualHours * rate;
+    const totalAdvantage = superLost + bonusValue;
+
+    document.getElementById('resignationResults').innerHTML = `
+        <div style="background:#fff3f3; border:1px solid #dc3545; padding:15px; border-radius:8px; margin-top:10px;">
+            <strong style="color:#dc3545;">Exit Strategy Analysis</strong>
+            <p>💰 <b>Lump Sum Cash:</b> $${payoutGross.toLocaleString()}</p>
+            <p>⚠️ <b>Super Lost on Payout:</b> -$${superLost.toFixed(2)}</p>
+            <p>🎁 <b>Extra Leave Accrued if Taken:</b> +${bonusAccrualHours.toFixed(2)} hrs ($${bonusValue.toFixed(2)})</p>
+            <hr>
+            <p style="font-size:1.1em; color:#28a745;"><b>Total "Take Leave" Advantage: +$${totalAdvantage.toLocaleString()}</b></p>
+        </div>`;
+}
+
+// 6. STORAGE & CALCULATION (RETAINED)
 function toggleMode() {
     const mode = document.getElementById('calcMode').value;
     document.getElementById('balanceSection').style.display = mode === 'knownBalance' ? 'block' : 'none';
@@ -132,6 +171,7 @@ function calculateLeave() {
     document.getElementById('resLSL').innerText = Math.max(0, (serviceWeeksTotal / 52) * 0.8667).toFixed(3);
 }
 
+// 7. LEAVE HISTORY & OPTIMIZER (RETAINED)
 function addHistoryEntry() {
     const start = getDropdownDate('leaveStart');
     const end = getDropdownDate('leaveEnd');
@@ -157,45 +197,20 @@ function optimizeLeave() {
     const resultsDiv = document.getElementById('optimizationResults');
     resultsDiv.innerHTML = 'Analyzing...';
     if (nswHolidays.length === 0) return;
-
     const tips = [];
     const today = new Date();
     const endDate = getDropdownDate('opt');
-    
-    // Convert holiday strings to objects for easier day-of-week manipulation
     const hData = nswHolidays.map(h => new Date(h)).sort((a,b) => a-b);
-
     hData.forEach(h => {
         if (h < today || h > endDate) return;
         const day = h.getDay();
         const dateStr = h.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
-
-        // TUESDAY HOLIDAY -> Bridge Monday
-        if (day === 2) {
-            tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: `Take Monday off to create a 4-day weekend.`, mult: "4 days off for 1 day leave" });
-        }
-        // THURSDAY HOLIDAY -> Bridge Friday
-        if (day === 4) {
-            tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: `Take Friday off to create a 4-day weekend.`, mult: "4 days off for 1 day leave" });
-        }
-        // WEDNESDAY HOLIDAY -> The Split
-        if (day === 3) {
-            tips.push({ title: `Mid-week Win: ${dateStr}`, desc: `Take Mon+Tue OR Thu+Fri off for a 5-day break.`, mult: "5 days off for 2 days leave" });
-        }
-        // Easter Strategy (Check if Good Friday)
-        if (day === 5 && (h.getMonth() === 2 || h.getMonth() === 3)) {
-            tips.push({ title: `Easter Mega-Break`, desc: `Take the 4 days after Easter Monday off.`, mult: "10 days off for 4 days leave" });
-        }
-        // Christmas Strategy (End of Dec)
-        if (h.getMonth() === 11 && h.getDate() === 25) {
-            tips.push({ title: `End of Year Reset`, desc: `Take the 3 days between Boxing Day and New Year's Day.`, mult: "10 days off for 3 days leave" });
-        }
+        if (day === 2) tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: `Take Monday off`, mult: "4 days off for 1 day leave" });
+        if (day === 4) tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: `Take Friday off`, mult: "4 days off for 1 day leave" });
+        if (day === 3) tips.push({ title: `Mid-week Win: ${dateStr}`, desc: `Take Mon+Tue OR Thu+Fri`, mult: "5 days off for 2 days leave" });
+        if (day === 5 && (h.getMonth() === 2 || h.getMonth() === 3)) tips.push({ title: `Easter Mega-Break`, desc: `Take 4 days after Easter Monday`, mult: "10 days off for 4 days leave" });
+        if (h.getMonth() === 11 && h.getDate() === 25) tips.push({ title: `End of Year Reset`, desc: `Take 3 days between Boxing Day and NYE`, mult: "10 days off for 3 days leave" });
     });
-
-    // Remove duplicates if any strategies overlap
     const uniqueTips = Array.from(new Set(tips.map(a => JSON.stringify(a)))).map(a => JSON.parse(a));
-
-    resultsDiv.innerHTML = uniqueTips.length > 0 
-        ? uniqueTips.map(t => `<div class="opt-item"><span class="opt-tag">${t.title}</span><br>${t.desc}<br><small style="color:#28a745;"><b>${t.mult}</b></small></div>`).join('')
-        : "No high-value clusters found in this period.";
+    resultsDiv.innerHTML = uniqueTips.length > 0 ? uniqueTips.map(t => `<div class="opt-item"><span class="opt-tag">${t.title}</span><br>${t.desc}<br><small style="color:#28a745;"><b>${t.mult}</b></small></div>`).join('') : "No clusters found.";
 }
