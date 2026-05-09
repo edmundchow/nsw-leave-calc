@@ -1,3 +1,4 @@
+@'
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAY_IDS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const MILLIS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -57,7 +58,12 @@ function getState() {
     weeklyHours: Number(document.getElementById('weeklyHours')?.value || 0),
     startBalance: Number(document.getElementById('startBalance')?.value || 0),
     roster: DAY_IDS.map(id => !!document.getElementById(id)?.checked),
-    takenHours: Array.from(document.querySelectorAll('.history-item')).reduce((s, el) => s + Number(el.dataset.amount || 0), 0)
+    takenHours: Array.from(document.querySelectorAll('.history-item')).reduce((s, el) => s + Number(el.dataset.amount || 0), 0),
+    resignationMode: !!document.getElementById('resignationMode')?.checked,
+    targetLastDay: parseDropdownDate('target'),
+    noticeWeeks: Number(document.getElementById('noticeWeeks')?.value || 0),
+    hourlyRate: Number(document.getElementById('hourlyRate')?.value || 0),
+    superRate: Number(document.getElementById('superRate')?.value || 11.5)
   };
 }
 
@@ -67,6 +73,9 @@ function validateState(state) {
   if (!Number.isFinite(state.weeklyHours) || state.weeklyHours <= 0) return 'Weekly hours must be greater than zero.';
   const workingDays = state.roster.filter(Boolean).length;
   if (workingDays === 0) return 'Select at least one ordinary working day.';
+  if (state.resignationMode && !isValidDate(state.targetLastDay)) return 'Please select a valid target last day.';
+  if (state.noticeWeeks < 0) return 'Notice weeks cannot be negative.';
+  if (state.resignationMode && state.hourlyRate <= 0) return 'Enter an hourly rate for resignation analysis.';
   return null;
 }
 
@@ -98,6 +107,42 @@ function calculateLeaveFromState(state) {
   };
 }
 
+function calculateExitStrategies(state, output) {
+  if (!state.resignationMode) return null;
+  const workingDays = state.roster.filter(Boolean).length;
+  const hrsPerDay = state.weeklyHours / workingDays;
+  const availableDays = output.annualHours / hrsPerDay;
+  const noticeDaysRequired = (state.noticeWeeks * 7) * (workingDays / 7);
+  const coverage = availableDays >= noticeDaysRequired ? 'Fully covered' : (availableDays > 0 ? 'Partially covered' : 'Not covered');
+
+  const payoutValue = output.annualHours * state.hourlyRate;
+  const payoutSuperLost = payoutValue * (state.superRate / 100);
+
+  const extraAccrualHours = Math.max(0, Math.min(availableDays, noticeDaysRequired)) * (state.weeklyHours * 4 / 260);
+  const runDownHours = output.annualHours + extraAccrualHours;
+  const runDownValue = runDownHours * state.hourlyRate;
+
+  return { coverage, noticeDaysRequired, availableDays, payoutValue, payoutSuperLost, runDownValue, extraAccrualHours };
+}
+
+function renderStrategies(result) {
+  const el = document.getElementById('strategyResults');
+  if (!el) return;
+  if (!result) {
+    el.innerHTML = 'Enable resignation mode to compare payout vs run-down.';
+    return;
+  }
+  const diff = result.runDownValue - (result.payoutValue - result.payoutSuperLost);
+  const winner = diff >= 0 ? 'Run-down strategy leads' : 'Lump-sum payout leads';
+  el.innerHTML = `
+    <b>Notice Coverage:</b> ${result.coverage}<br>
+    <b>Available leave days:</b> ${result.availableDays.toFixed(1)} / ${result.noticeDaysRequired.toFixed(1)} needed<br>
+    <b>Lump Sum:</b> $${result.payoutValue.toFixed(2)} (super opportunity loss: $${result.payoutSuperLost.toFixed(2)})<br>
+    <b>Run-Down:</b> $${result.runDownValue.toFixed(2)} (includes +${result.extraAccrualHours.toFixed(2)} hrs accrued)<br>
+    <b>Result:</b> ${winner} by $${Math.abs(diff).toFixed(2)}
+  `;
+}
+
 function renderValidation(msg) {
   const annual = document.getElementById('resAnnual');
   const days = document.getElementById('resDays');
@@ -123,12 +168,14 @@ function calculateLeave() {
   }
   clearValidation();
   const output = calculateLeaveFromState(state);
+  const strategy = calculateExitStrategies(state, output);
+  renderStrategies(strategy);
   document.getElementById('resAnnual').innerText = output.annualHours.toFixed(2);
   document.getElementById('resDays').innerText = output.annualDays.toFixed(1);
   document.getElementById('resLSL').innerText = output.lslWeeks.toFixed(3);
 }
 
-async function fetchHolidays() { /* unchanged */
+async function fetchHolidays() {
   try {
     const apiUrl = 'https://data.gov.au/data/api/3/action/datastore_search?resource_id=d256f282-ba27-4c64-ade7-0d7ad2530554&limit=1000';
     const response = await fetch(apiUrl);
@@ -161,7 +208,12 @@ function saveToDB() {
     balanceDate: balanceDate ? balanceDate.toISOString() : null,
     startBalance: document.getElementById('startBalance')?.value || 0,
     roster: DAY_IDS.map(id => !!document.getElementById(id)?.checked),
-    history: Array.from(document.querySelectorAll('.history-item')).map(item => ({ id: item.dataset.id, note: item.querySelector('.note-text').innerText, amount: Number(item.dataset.amount) }))
+    history: Array.from(document.querySelectorAll('.history-item')).map(item => ({ id: item.dataset.id, note: item.querySelector('.note-text').innerText, amount: Number(item.dataset.amount) })),
+    resignationMode: !!document.getElementById('resignationMode')?.checked,
+    targetLastDay: parseDropdownDate('target')?.toISOString() || null,
+    noticeWeeks: Number(document.getElementById('noticeWeeks')?.value || 0),
+    hourlyRate: Number(document.getElementById('hourlyRate')?.value || 0),
+    superRate: Number(document.getElementById('superRate')?.value || 11.5)
   };
   db.transaction('userData', 'readwrite').objectStore('userData').put(profile, 'profile');
 }
@@ -175,6 +227,11 @@ function loadFromDB() {
     if (document.getElementById('weeklyHours')) document.getElementById('weeklyHours').value = d.weeklyHours || 38;
     if (document.getElementById('startBalance')) document.getElementById('startBalance').value = d.startBalance || 0;
     if (d.roster) d.roster.forEach((c, i) => { const el = document.getElementById(DAY_IDS[i]); if (el) el.checked = c; });
+    if (document.getElementById('resignationMode')) document.getElementById('resignationMode').checked = !!d.resignationMode;
+    setDropdownDate('target', d.targetLastDay);
+    if (document.getElementById('noticeWeeks')) document.getElementById('noticeWeeks').value = d.noticeWeeks ?? 2;
+    if (document.getElementById('hourlyRate')) document.getElementById('hourlyRate').value = d.hourlyRate ?? 35;
+    if (document.getElementById('superRate')) document.getElementById('superRate').value = d.superRate ?? 11.5;
     if (d.history) { document.getElementById('historyList').innerHTML = ''; d.history.forEach(appendHistoryDOM); }
     toggleMode();
   };
@@ -195,8 +252,40 @@ function addHistoryEntry() {
   scheduleRecalculate();
 }
 
-function appendHistoryDOM(h) { const div = document.createElement('div'); div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount; div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs)</span><button class="btn-del" onclick="this.parentElement.remove(); scheduleRecalculate();">Delete</button>`; document.getElementById('historyList').appendChild(div); }
-function optimizeLeave() { /* unchanged logic */ const resultsDiv = document.getElementById('optimizationResults'); resultsDiv.innerHTML = 'Analyzing...'; if (nswHolidays.length === 0) return; const tips = []; const today = new Date(); const endDate = parseDropdownDate('opt'); const hData = nswHolidays.map(h => new Date(h)).sort((a, b) => a - b); hData.forEach(h => { if (h < today || h > endDate) return; const day = h.getDay(); const dateStr = h.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }); if (day === 2) tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: 'Take Monday off to create a 4-day weekend.', mult: '4 days off for 1 day leave' }); if (day === 4) tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: 'Take Friday off to create a 4-day weekend.', mult: '4 days off for 1 day leave' }); if (day === 3) tips.push({ title: `Mid-week Win: ${dateStr}`, desc: 'Take Mon+Tue OR Thu+Fri off for a 5-day break.', mult: '5 days off for 2 days leave' }); if (day === 5 && (h.getMonth() === 2 || h.getMonth() === 3)) tips.push({ title: 'Easter Mega-Break', desc: 'Take the 4 days after Easter Monday off.', mult: '10 days off for 4 days leave' }); if (h.getMonth() === 11 && h.getDate() === 25) tips.push({ title: 'End of Year Reset', desc: "Take the 3 days between Boxing Day and New Year's Day.", mult: '10 days off for 3 days leave' }); }); const uniqueTips = Array.from(new Set(tips.map(a => JSON.stringify(a)))).map(a => JSON.parse(a)); resultsDiv.innerHTML = uniqueTips.length > 0 ? uniqueTips.map(t => `<div class="opt-item"><span class="opt-tag">${t.title}</span><br>${t.desc}<br><small style="color:#28a745;"><b>${t.mult}</b></small></div>`).join('') : 'No high-value clusters found in this period.'; }
+function appendHistoryDOM(h) {
+  const div = document.createElement('div');
+  div.className = 'history-item';
+  div.dataset.id = h.id;
+  div.dataset.amount = h.amount;
+  div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs)</span><button class="btn-del" onclick="this.parentElement.remove(); scheduleRecalculate();">Delete</button>`;
+  document.getElementById('historyList').appendChild(div);
+}
+
+function optimizeLeave() { /* unchanged logic */
+  const resultsDiv = document.getElementById('optimizationResults');
+  resultsDiv.innerHTML = 'Analyzing...';
+  if (nswHolidays.length === 0) return;
+  const tips = [];
+  const today = new Date();
+  const endDate = parseDropdownDate('opt');
+  const hData = nswHolidays.map(h => new Date(h)).sort((a, b) => a - b);
+
+  hData.forEach(h => {
+    if (h < today || h > endDate) return;
+    const day = h.getDay();
+    const dateStr = h.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (day === 2) tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: 'Take Monday off to create a 4-day weekend.', mult: '4 days off for 1 day leave' });
+    if (day === 4) tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: 'Take Friday off to create a 4-day weekend.', mult: '4 days off for 1 day leave' });
+    if (day === 3) tips.push({ title: `Mid-week Win: ${dateStr}`, desc: 'Take Mon+Tue OR Thu+Fri off for a 5-day break.', mult: '5 days off for 2 days leave' });
+    if (day === 5 && (h.getMonth() === 2 || h.getMonth() === 3)) tips.push({ title: 'Easter Mega-Break', desc: 'Take the 4 days after Easter Monday off.', mult: '10 days off for 4 days leave' });
+    if (h.getMonth() === 11 && h.getDate() === 25) tips.push({ title: 'End of Year Reset', desc: "Take the 3 days between Boxing Day and New Year's Day.", mult: '10 days off for 3 days leave' });
+  });
+
+  const uniqueTips = Array.from(new Set(tips.map(a => JSON.stringify(a)))).map(a => JSON.parse(a));
+  resultsDiv.innerHTML = uniqueTips.length > 0
+    ? uniqueTips.map(t => `<div class="opt-item"><span class="opt-tag">${t.title}</span><br>${t.desc}<br><small style="color:#28a745;"><b>${t.mult}</b></small></div>`).join('')
+    : 'No high-value clusters found in this period.';
+}
 
 const dbRequest = indexedDB.open('NSWLeaveTracker', 1);
 dbRequest.onupgradeneeded = (e) => e.target.result.createObjectStore('userData');
@@ -208,7 +297,11 @@ dbRequest.onsuccess = (e) => {
   populateDropdowns('leaveStart', curYear - 1, curYear + 2);
   populateDropdowns('leaveEnd', curYear - 1, curYear + 2);
   populateDropdowns('opt', curYear, curYear + 2);
+  populateDropdowns('target', curYear, curYear + 2);
   document.getElementById('optDay').value = 31;
+  document.getElementById('targetDay').value = new Date().getDate();
+  document.getElementById('targetMonth').value = new Date().getMonth();
+  document.getElementById('targetYear').value = curYear;
   document.getElementById('optMonth').value = 11;
   document.getElementById('optYear').value = curYear + 1;
   fetchHolidays();
@@ -220,3 +313,4 @@ dbRequest.onsuccess = (e) => {
     }
   });
 };
+'@ | Set-Content -Path .\app.js -Encoding UTF8

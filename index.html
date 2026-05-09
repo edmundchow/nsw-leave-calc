@@ -1,3 +1,4 @@
+@'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,6 +114,33 @@
         <div id="historyList" style="margin-top:15px;"></div>
     </div>
 
+
+    <div class="card">
+        <div class="section-title">Resignation Mode (Phase 2)</div>
+        <div class="input-group">
+            <label><input type="checkbox" id="resignationMode"> Enable resignation strategy analysis</label>
+        </div>
+        <div class="input-group">
+            <label>Target Last Day</label>
+            <div class="date-row">
+                <select id="targetDay"></select><select id="targetMonth"></select><select id="targetYear"></select>
+            </div>
+        </div>
+        <div class="input-group">
+            <label>Required Notice (weeks)</label>
+            <input type="number" id="noticeWeeks" value="2" min="0" step="1">
+        </div>
+        <div class="input-group">
+            <label>Hourly Rate (AUD)</label>
+            <input type="number" id="hourlyRate" value="35" min="0" step="0.01">
+        </div>
+        <div class="input-group">
+            <label>Super Rate (%)</label>
+            <input type="number" id="superRate" value="11.5" min="0" step="0.1">
+        </div>
+        <div id="strategyResults" style="font-size:0.9em;color:#333;line-height:1.5;">Enable resignation mode to compare payout vs run-down.</div>
+    </div>
+
     <div class="card">
         <div class="section-title">Leave Optimizer</div>
         <p style="font-size: 0.8em; color: #666;">Scan for high-value holiday clusters.</p>
@@ -148,3 +176,4 @@
     </script>
 </body>
 </html>
+'@ | Set-Content -Path .\index.html -Encoding UTF8
