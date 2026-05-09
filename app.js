@@ -61,6 +61,7 @@ function getState() {
     resignationMode: !!document.getElementById('resignationMode')?.checked,
     targetLastDay: parseDropdownDate('target'),
     noticeWeeks: Number(document.getElementById('noticeWeeks')?.value || 0),
+    acceptedNoticeDays: Number(document.getElementById('acceptedNoticeDays')?.value || 0),
     hourlyRate: Number(document.getElementById('hourlyRate')?.value || 0),
     superRate: Number(document.getElementById('superRate')?.value || 11.5)
   };
@@ -74,6 +75,7 @@ function validateState(state) {
   if (workingDays === 0) return 'Select at least one ordinary working day.';
   if (state.resignationMode && !isValidDate(state.targetLastDay)) return 'Please select a valid target last day.';
   if (state.noticeWeeks < 0) return 'Notice weeks cannot be negative.';
+  if (state.acceptedNoticeDays < 0) return 'Accepted notice days cannot be negative.';
   if (state.resignationMode && state.hourlyRate <= 0) return 'Enter an hourly rate for resignation analysis.';
   return null;
 }
@@ -143,6 +145,51 @@ function renderStrategies(result) {
   `;
 }
 
+function isWorkingDay(date, state) {
+  const idx = date.getDay();
+  if (!state.roster[idx]) return false;
+  return !nswHolidays.includes(date.toISOString().split('T')[0]);
+}
+
+function findResignationDate(targetLastDay, requiredWorkingDays, state) {
+  if (requiredWorkingDays <= 0) return new Date(targetLastDay);
+  const cursor = new Date(targetLastDay);
+  let counted = 0;
+  while (counted < requiredWorkingDays) {
+    cursor.setDate(cursor.getDate() - 1);
+    if (isWorkingDay(cursor, state)) counted += 1;
+  }
+  return cursor;
+}
+
+function renderNoticePlanner(state) {
+  const el = document.getElementById('noticePlannerResults');
+  if (!el) return;
+  if (!state.resignationMode || !isValidDate(state.targetLastDay)) {
+    el.innerHTML = '';
+    return;
+  }
+  const workingDays = state.roster.filter(Boolean).length;
+  const dailyHours = state.weeklyHours / workingDays;
+  const dailyPay = dailyHours * state.hourlyRate;
+  const requiredDays = Math.max(0, Math.round(state.noticeWeeks * workingDays));
+  const acceptedDays = Math.min(requiredDays, Math.max(0, Math.round(state.acceptedNoticeDays)));
+  const fullDate = findResignationDate(state.targetLastDay, requiredDays, state);
+  const partialDate = findResignationDate(state.targetLastDay, acceptedDays, state);
+  const lossDays = requiredDays - acceptedDays;
+  const incomeLoss = lossDays * dailyPay;
+  const superLoss = incomeLoss * (state.superRate / 100);
+  const fmt = (d) => d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+  el.innerHTML = `
+    <b>Notice planner:</b><br>
+    Full notice (${requiredDays} working days): submit by <b>${fmt(fullDate)}</b>.<br>
+    Accepted notice (${acceptedDays} working days): submit by <b>${fmt(partialDate)}</b>.<br>
+    Notice shortfall: <b>${lossDays}</b> working days.<br>
+    Estimated income loss: <b>$${incomeLoss.toFixed(2)}</b><br>
+    Estimated super loss: <b>$${superLoss.toFixed(2)}</b>
+  `;
+}
+
 function renderValidation(msg) {
   const annual = document.getElementById('resAnnual');
   const days = document.getElementById('resDays');
@@ -170,6 +217,7 @@ function calculateLeave() {
   const output = calculateLeaveFromState(state);
   const strategy = calculateExitStrategies(state, output);
   renderStrategies(strategy);
+  renderNoticePlanner(state);
   document.getElementById('resAnnual').innerText = output.annualHours.toFixed(2);
   document.getElementById('resDays').innerText = output.annualDays.toFixed(1);
   document.getElementById('resLSL').innerText = output.lslWeeks.toFixed(3);
@@ -212,6 +260,7 @@ function saveToDB() {
     resignationMode: !!document.getElementById('resignationMode')?.checked,
     targetLastDay: parseDropdownDate('target')?.toISOString() || null,
     noticeWeeks: Number(document.getElementById('noticeWeeks')?.value || 0),
+    acceptedNoticeDays: Number(document.getElementById('acceptedNoticeDays')?.value || 0),
     hourlyRate: Number(document.getElementById('hourlyRate')?.value || 0),
     superRate: Number(document.getElementById('superRate')?.value || 11.5)
   };
@@ -230,6 +279,7 @@ function loadFromDB() {
     if (document.getElementById('resignationMode')) document.getElementById('resignationMode').checked = !!d.resignationMode;
     setDropdownDate('target', d.targetLastDay);
     if (document.getElementById('noticeWeeks')) document.getElementById('noticeWeeks').value = d.noticeWeeks ?? 2;
+    if (document.getElementById('acceptedNoticeDays')) document.getElementById('acceptedNoticeDays').value = d.acceptedNoticeDays ?? 0;
     if (document.getElementById('hourlyRate')) document.getElementById('hourlyRate').value = d.hourlyRate ?? 35;
     if (document.getElementById('superRate')) document.getElementById('superRate').value = d.superRate ?? 11.5;
     if (d.history) { document.getElementById('historyList').innerHTML = ''; d.history.forEach(appendHistoryDOM); }
