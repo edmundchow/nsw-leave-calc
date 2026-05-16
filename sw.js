@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v16';
+const CACHE_VERSION = 'v17';
 const CACHE_NAME = `nsw-leave-${CACHE_VERSION}`;
 const ASSETS = ['./', './index.html', './app.js', './style.css', './manifest.json'];
 
@@ -21,6 +21,7 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  if (!event.request.url.startsWith('http')) return;
 
   event.respondWith((async () => {
     try {
