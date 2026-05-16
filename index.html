@@ -91,12 +91,8 @@
                 <label><input type="checkbox" id="sat" onchange="calculateLeave(); saveToDB();">S</label>
             </div>
         </div>
-    </div>
-
-    <div class="card">
-        <div class="section-title">Annual Leave Calculation</div>
         <div class="input-group">
-            <label>Mode</label>
+            <label>Annual Leave Mode</label>
             <select id="calcMode" onchange="toggleMode();">
                 <option value="startDate">Continuous Since Hire Date</option>
                 <option value="knownBalance">Manual Balance Entry</option>
@@ -112,6 +108,44 @@
             <label>Hours Balance at that Date</label>
             <input type="number" id="startBalance" value="0" step="0.01" oninput="calculateLeave(); saveToDB();">
         </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">Leave Optimizer</div>
+        <p style="font-size: 0.8em; color: #666;">Scan for high-value holiday clusters.</p>
+        <div class="input-group">
+            <label>Calculate Until:</label>
+            <div class="date-row">
+                <select id="optDay"></select>
+                <select id="optMonth"></select>
+                <select id="optYear"></select>
+            </div>
+        </div>
+        <button class="btn-opt" onclick="optimizeLeave()">Find Best Leave Dates</button>
+        <div id="optimizationResults" style="margin-top: 15px;"></div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">What-If Calculator</div>
+        <p style="font-size: 0.8em; color: #666;">See the impact of taking leave without saving to history.</p>
+        <div class="input-group">
+            <label>Leave Type</label>
+            <select id="whatifType" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                <option value="annual">Annual Leave</option>
+                <option value="lsl">Long Service Leave</option>
+                <option value="personal">Personal Leave</option>
+            </select>
+        </div>
+        <label>From</label>
+        <div class="date-row" style="margin-bottom:10px;">
+            <select id="whatifStartDay"></select><select id="whatifStartMonth"></select><select id="whatifStartYear"></select>
+        </div>
+        <label>To</label>
+        <div class="date-row" style="margin-bottom:10px;">
+            <select id="whatifEndDay"></select><select id="whatifEndMonth"></select><select id="whatifEndYear"></select>
+        </div>
+        <button class="btn-add" onclick="calculateWhatIf()">Calculate What-If</button>
+        <div id="whatifResults" style="margin-top:15px;font-size:0.9em;color:#333;line-height:1.5;"></div>
     </div>
 
     <div class="card">
@@ -167,44 +201,6 @@
         </div>
         <div id="strategyResults" style="font-size:0.9em;color:#333;line-height:1.5;">Enable exit strategy analysis to compare payout vs run-down.</div>
         <div id="noticePlannerResults" style="font-size:0.9em;color:#333;line-height:1.5;margin-top:10px;"></div>
-    </div>
-
-    <div class="card">
-        <div class="section-title">Leave Optimizer</div>
-        <p style="font-size: 0.8em; color: #666;">Scan for high-value holiday clusters.</p>
-        <div class="input-group">
-            <label>Calculate Until:</label>
-            <div class="date-row">
-                <select id="optDay"></select>
-                <select id="optMonth"></select>
-                <select id="optYear"></select>
-            </div>
-        </div>
-        <button class="btn-opt" onclick="optimizeLeave()">Find Best Leave Dates</button>
-        <div id="optimizationResults" style="margin-top: 15px;"></div>
-    </div>
-
-    <div class="card">
-        <div class="section-title">What-If Calculator</div>
-        <p style="font-size: 0.8em; color: #666;">See the impact of taking leave without saving to history.</p>
-        <div class="input-group">
-            <label>Leave Type</label>
-            <select id="whatifType" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
-                <option value="annual">Annual Leave</option>
-                <option value="lsl">Long Service Leave</option>
-                <option value="personal">Personal Leave</option>
-            </select>
-        </div>
-        <label>From</label>
-        <div class="date-row" style="margin-bottom:10px;">
-            <select id="whatifStartDay"></select><select id="whatifStartMonth"></select><select id="whatifStartYear"></select>
-        </div>
-        <label>To</label>
-        <div class="date-row" style="margin-bottom:10px;">
-            <select id="whatifEndDay"></select><select id="whatifEndMonth"></select><select id="whatifEndYear"></select>
-        </div>
-        <button class="btn-add" onclick="calculateWhatIf()">Calculate What-If</button>
-        <div id="whatifResults" style="margin-top:15px;font-size:0.9em;color:#333;line-height:1.5;"></div>
     </div>
 
     <script src="app.js"></script>
