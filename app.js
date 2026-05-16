@@ -311,6 +311,26 @@ function addHistoryEntry() {
 function appendHistoryDOM(h) { const div = document.createElement('div'); div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount; div.dataset.type = h.type || 'annual'; const label = h.type === 'lsl' ? 'LSL' : 'AL'; div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs) [${label}]</span><button class="btn-del" onclick="this.parentElement.remove(); scheduleRecalculate();">Delete</button>`; document.getElementById('historyList').appendChild(div); }
 function optimizeLeave() { /* unchanged logic */ const resultsDiv = document.getElementById('optimizationResults'); resultsDiv.innerHTML = 'Analyzing...'; if (nswHolidays.length === 0) return; const tips = []; const today = new Date(); const endDate = parseDropdownDate('opt'); const hData = nswHolidays.map(h => new Date(h)).sort((a, b) => a - b); hData.forEach(h => { if (h < today || h > endDate) return; const day = h.getDay(); const dateStr = h.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }); if (day === 2) tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: 'Take Monday off to create a 4-day weekend.', mult: '4 days off for 1 day leave' }); if (day === 4) tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: 'Take Friday off to create a 4-day weekend.', mult: '4 days off for 1 day leave' }); if (day === 3) tips.push({ title: `Mid-week Win: ${dateStr}`, desc: 'Take Mon+Tue OR Thu+Fri off for a 5-day break.', mult: '5 days off for 2 days leave' }); if (day === 5 && (h.getMonth() === 2 || h.getMonth() === 3)) tips.push({ title: 'Easter Mega-Break', desc: 'Take the 4 days after Easter Monday off.', mult: '10 days off for 4 days leave' }); if (h.getMonth() === 11 && h.getDate() === 25) tips.push({ title: 'End of Year Reset', desc: "Take the 3 days between Boxing Day and New Year's Day.", mult: '10 days off for 3 days leave' }); }); const uniqueTips = Array.from(new Set(tips.map(a => JSON.stringify(a)))).map(a => JSON.parse(a)); resultsDiv.innerHTML = uniqueTips.length > 0 ? uniqueTips.map(t => `<div class="opt-item"><span class="opt-tag">${t.title}</span><br>${t.desc}<br><small style="color:#28a745;"><b>${t.mult}</b></small></div>`).join('') : 'No high-value clusters found in this period.'; }
 
+function initCollapsibleSections() {
+  document.querySelectorAll('.card').forEach(card => {
+    const title = card.querySelector('.section-title');
+    if (!title) return;
+    const body = document.createElement('div');
+    let el = title.nextElementSibling;
+    while (el) {
+      const next = el.nextElementSibling;
+      body.appendChild(el);
+      el = next;
+    }
+    card.appendChild(body);
+    body.style.display = 'none';
+    title.addEventListener('click', () => {
+      const open = title.classList.toggle('open');
+      body.style.display = open ? '' : 'none';
+    });
+  });
+}
+
 function initializeUI() {
   const curYear = new Date().getFullYear();
   populateDropdowns('hire', 1995, curYear + 1);
@@ -332,6 +352,7 @@ function initializeUI() {
       el.addEventListener('change', scheduleRecalculate);
     }
   });
+  initCollapsibleSections();
 }
 
 const dbRequest = indexedDB.open('NSWLeaveTracker', 1);
