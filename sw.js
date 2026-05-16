@@ -1,6 +1,6 @@
 const CACHE_VERSION = 'v18';
 const CACHE_NAME = `nsw-leave-${CACHE_VERSION}`;
-const ASSETS = ['./', './index.html', './app.js', './style.css', './manifest.json', './icon.svg'];
+const ASSETS = ['./', './index.html', './app.js', './style.css', './manifest.json', './icon.png'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
