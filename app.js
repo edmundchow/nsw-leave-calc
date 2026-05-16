@@ -65,7 +65,8 @@ function getState() {
     noticeWeeks: Number(document.getElementById('noticeWeeks')?.value || 0),
     acceptedNoticeDays: Number(document.getElementById('acceptedNoticeDays')?.value || 0),
     hourlyRate: Number(document.getElementById('hourlyRate')?.value || 0),
-    superRate: Number(document.getElementById('superRate')?.value || 11.5)
+    superRate: Number(document.getElementById('superRate')?.value || 11.5),
+    leaveLoading: Number(document.getElementById('leaveLoading')?.value || 0)
   };
 }
 
@@ -122,14 +123,15 @@ function calculateExitStrategies(state, output) {
   const noticeDaysRequired = (state.noticeWeeks * 7) * (workingDays / 7);
   const coverage = availableDays >= noticeDaysRequired ? 'Fully covered' : (availableDays > 0 ? 'Partially covered' : 'Not covered');
 
-  const payoutValue = output.annualHours * state.hourlyRate;
+  const loadingMultiplier = 1 + state.leaveLoading / 100;
+  const payoutValue = output.annualHours * state.hourlyRate * loadingMultiplier;
   const payoutSuperLost = payoutValue * (state.superRate / 100);
 
   const extraAccrualHours = Math.max(0, Math.min(availableDays, noticeDaysRequired)) * (state.weeklyHours * 4 / 260);
   const runDownHours = output.annualHours + extraAccrualHours;
   const runDownValue = runDownHours * state.hourlyRate;
 
-  return { coverage, noticeDaysRequired, availableDays, payoutValue, payoutSuperLost, runDownValue, extraAccrualHours };
+  return { coverage, noticeDaysRequired, availableDays, payoutValue, payoutSuperLost, runDownValue, extraAccrualHours, leaveLoading: state.leaveLoading };
 }
 
 function renderStrategies(result) {
@@ -144,7 +146,7 @@ function renderStrategies(result) {
   el.innerHTML = `
     <b>Notice Coverage:</b> ${result.coverage}<br>
     <b>Available leave days:</b> ${result.availableDays.toFixed(1)} / ${result.noticeDaysRequired.toFixed(1)} needed<br>
-    <b>Lump Sum:</b> $${result.payoutValue.toFixed(2)} (super opportunity loss: $${result.payoutSuperLost.toFixed(2)})<br>
+    <b>Lump Sum:</b> $${result.payoutValue.toFixed(2)}${result.leaveLoading > 0 ? ` (incl. ${result.leaveLoading}% loading)` : ''} (super opportunity loss: $${result.payoutSuperLost.toFixed(2)})<br>
     <b>Run-Down:</b> $${result.runDownValue.toFixed(2)} (includes +${result.extraAccrualHours.toFixed(2)} hrs accrued)<br>
     <b>Result:</b> ${winner} by $${Math.abs(diff).toFixed(2)}
   `;
@@ -185,11 +187,17 @@ function renderNoticePlanner(state) {
   const incomeLoss = lossDays * dailyPay;
   const superLoss = incomeLoss * (state.superRate / 100);
   const fmt = (d) => d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+  let partialLine;
+  if (acceptedDays === 0) {
+    partialLine = `If released on submission day: last day is submission day, loss is ${lossDays} working day${lossDays === 1 ? '' : 's'}.`;
+  } else {
+    partialLine = `If notice reduced to ${acceptedDays} working day${acceptedDays === 1 ? '' : 's'}: submit by <b>${fmt(partialDate)}</b>.`;
+  }
   el.innerHTML = `
     <b>Notice planner:</b><br>
-    Full notice (${requiredDays} working days): submit by <b>${fmt(fullDate)}</b>.<br>
-    Accepted notice (${acceptedDays} working days): submit by <b>${fmt(partialDate)}</b>.<br>
-    Notice shortfall: <b>${lossDays}</b> working days.<br>
+    Serve full ${requiredDays} working day notice: submit by <b>${fmt(fullDate)}</b> to leave on ${fmt(state.targetLastDay)}.<br>
+    ${partialLine}<br>
+    Notice shortfall: <b>${lossDays}</b> working day${lossDays === 1 ? '' : 's'}.<br>
     Estimated income loss: <b>$${incomeLoss.toFixed(2)}</b><br>
     Estimated super loss: <b>$${superLoss.toFixed(2)}</b>
   `;
@@ -267,7 +275,8 @@ function saveToDB() {
     noticeWeeks: Number(document.getElementById('noticeWeeks')?.value || 0),
     acceptedNoticeDays: Number(document.getElementById('acceptedNoticeDays')?.value || 0),
     hourlyRate: Number(document.getElementById('hourlyRate')?.value || 0),
-    superRate: Number(document.getElementById('superRate')?.value || 11.5)
+    superRate: Number(document.getElementById('superRate')?.value || 11.5),
+    leaveLoading: Number(document.getElementById('leaveLoading')?.value || 0)
   };
   db.transaction('userData', 'readwrite').objectStore('userData').put(profile, 'profile');
 }
@@ -287,6 +296,7 @@ function loadFromDB() {
     if (document.getElementById('acceptedNoticeDays')) document.getElementById('acceptedNoticeDays').value = d.acceptedNoticeDays ?? 0;
     if (document.getElementById('hourlyRate')) document.getElementById('hourlyRate').value = d.hourlyRate ?? 35;
     if (document.getElementById('superRate')) document.getElementById('superRate').value = d.superRate ?? 11.5;
+    if (document.getElementById('leaveLoading')) document.getElementById('leaveLoading').value = d.leaveLoading ?? 0;
     if (d.history) { document.getElementById('historyList').innerHTML = ''; d.history.forEach(appendHistoryDOM); }
     toggleMode();
   };
