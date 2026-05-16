@@ -1,6 +1,6 @@
 # NSW Leave Calculator — Project Handover
 
-**Last Updated**: 2026-05-16  
+**Last Updated**: 2026-05-16 (evening)  
 **Repository**: edmundchow/nsw-leave-calc  
 **Branch**: `main`  
 **App Type**: Single-page HTML/JS PWA (offline-capable via Service Worker)
@@ -11,8 +11,8 @@
 
 | File | Lines | Purpose |
 |---|---|---|
-| `index.html` | 205 | UI shell with inline CSS; 6 collapsible card sections |
-| `app.js` | 390+ | All logic: calculations, persistence, collapsible sections |
+| `index.html` | 220+ | UI shell with inline CSS; 7 collapsible card sections + what-if card |
+| `app.js` | 400+ | All logic: calculations, persistence, collapsible sections |
 | `sw.js` | 38 | Service worker (network-first, cache-fallback, version `v16`) |
 | `manifest.json` | 15 | PWA install manifest |
 | `style.css` | 53 | External styles (used in addition to inline styles) |
@@ -24,11 +24,32 @@
 - LSL accrual: `serviceYears × (8.6667 / 10)` weeks (NSW LSL Act 1955 formula)
 - Known-balance mode (manual balance entry with recorded date)
 - Roster-aware calculations (weekday toggles, public holiday exclusions)
-- Leave history with Annual Leave / LSL type differentiation (radio button)
+- Leave history with Annual Leave / LSL / Personal Leave type differentiation (radio buttons)
 - IndexedDB persistence (`NSWLeaveTracker` / `userData`)
 - PWA with service worker (network-first, cache-fallback for offline)
 - Holiday data fetched from `data.gov.au` with hardcoded fallback
 - Leave optimizer (finds high-value holiday clusters for long weekends)
+
+### Personal/Carer's Leave
+- Accrual: 10 days per year, prorated daily using `(weeklyHours / workingDays) × 10 × serviceYears`
+- Displayed as 4th column in results bar (Personal Hrs)
+- Tracked separately from Annual Leave and LSL in history entries
+
+### Casual Loading
+- Checkbox in Employment Constants: "Casual worker (25% loading)"
+- Applies 1.25× multiplier to hourly rate in resignation payout and notice planner calculations
+- Does not affect leave accrual rates
+
+### Project Date
+- Checkbox + date picker in Employment Constants
+- When enabled, uses the selected date instead of "today" as the accrual endpoint
+- Useful for projecting leave balance forward to a specific future date
+
+### What-If Calculator
+- Standalone card below Leave Optimizer
+- Select leave type (Annual/LSL/Personal) + date range
+- Shows hours deducted and remaining balance — nothing saved to history
+- Uses the same working-day/holiday exclusion logic as the history system
 
 ### Phase 2 — Resignation Mode
 - Strategy comparison: lump sum payout vs. run-down during notice period
@@ -66,7 +87,11 @@
 ### Annual Leave
 - Accrual rate: `weeklyHours × 4` per year (NES minimum)
 - Daily hours: `weeklyHours / workingDays` (equal distribution across roster days)
-- Accrual calculated to today's date (not to target last day)
+- Accrual endpoint defaults to today; can be set to a specific future date via the Project Date toggle
+
+### Personal/Carer's Leave
+- Accrual: 10 days per year = `(weeklyHours / workingDays) × 10` hours per year (NES minimum)
+- Tracked separately from Annual Leave in the results bar (4th column) and history entries
 
 ### LSL
 - Formula: `serviceYears × (8.6667 / 10)` weeks
@@ -84,6 +109,12 @@
 - Lump sum = `annualHours × hourlyRate × (1 + leaveLoading / 100)`
 - Run-down = `runDownHours × hourlyRate` (where runDown includes extra accrual during notice)
 - Leave loading defaults to 0% (NES minimum); set per award (commonly 17.5%)
+- Casual loading (25%) applies as a 1.25× multiplier on hourly rate when enabled
+
+### What-If Calculator
+- Deduction calculation uses same working-day counting and holiday exclusion logic as the history system
+- Reads current displayed balance from the results bar to estimate remaining balance
+- Does not persist anything to IndexedDB or history
 
 ## 5) Known Risks & Gaps
 
@@ -91,7 +122,7 @@
 2. **UI/logic coupling** — `getState()` and `render*()` functions read/write DOM directly
 3. **Legal assumptions not validated** — notice as working days, holiday exclusions, pro-rata treatment all need domain sign-off
 4. **Holiday data** — fetched from `data.gov.au` at runtime with a hardcoded fallback array (2026-2027); no versioning or year-scoped refresh policy
-5. **Accrual endpoint** — uses `today` rather than target last day; resignation scenario doesn't freeze accrual at the effective exit date
+5. **Resignation accrual** — doesn't freeze leave accrual at the effective exit date (uses today or project date)
 6. **No tax modeling** — all figures are pre-tax
 
 ## 6) Tag

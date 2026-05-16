@@ -16,7 +16,7 @@
         .date-row { display: flex; gap: 5px; }
         select { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 1em; height: 45px; }
         input[type="number"], select#calcMode { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; height: 45px; }
-        .results { background: #007bff; color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: center; }
+        .results { background: #007bff; color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; text-align: center; }
         .result-item { display: flex; flex-direction: column; justify-content: center; }
         .result-val { font-size: 1.3em; font-weight: bold; display: block; }
         .result-label { font-size: 0.7em; opacity: 0.9; text-transform: uppercase; margin-top: 4px; }
@@ -35,18 +35,22 @@
 <body>
     <h1>NSW Leave Tracker</h1>
     
-    <div class="results">
+        <div class="results">
         <div class="result-item">
             <span class="result-val" id="resAnnual">0.00</span>
             <span class="result-label">Annual (Hrs)</span>
         </div>
-        <div class="result-item" style="border-left: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">
+        <div class="result-item" style="border-left: 1px solid rgba(255,255,255,0.2);">
             <span class="result-val" id="resDays">0.0</span>
             <span class="result-label">Annual (Days)</span>
         </div>
-        <div class="result-item">
+        <div class="result-item" style="border-left: 1px solid rgba(255,255,255,0.2);">
             <span class="result-val" id="resLSL">0.000</span>
             <span class="result-label">LSL (Weeks)</span>
+        </div>
+        <div class="result-item" style="border-left: 1px solid rgba(255,255,255,0.2);">
+            <span class="result-val" id="resPersonal">0.00</span>
+            <span class="result-label">Personal (Hrs)</span>
         </div>
     </div>
 
@@ -63,6 +67,17 @@
         <div class="input-group">
             <label>Weekly Ordinary Hours</label>
             <input type="number" id="weeklyHours" value="38" oninput="calculateLeave(); saveToDB();">
+        </div>
+        <div class="input-group">
+            <label><input type="checkbox" id="casualLoading" onchange="calculateLeave(); saveToDB();"> Casual worker (25% loading)</label>
+        </div>
+        <div class="input-group">
+            <label><input type="checkbox" id="enableProjectDate" onchange="toggleProjectDate();"> Project to specific date</label>
+            <div class="date-row" id="projectDateSection" style="display:none;margin-top:8px;">
+                <select id="projectDay" onchange="calculateLeave(); saveToDB();"></select>
+                <select id="projectMonth" onchange="calculateLeave(); saveToDB();"></select>
+                <select id="projectYear" onchange="calculateLeave(); saveToDB();"></select>
+            </div>
         </div>
     </div>
 
@@ -113,7 +128,8 @@
         <input type="text" id="leaveNote" placeholder="e.g. Vacation" style="width:100%; padding:10px; border-radius:6px; border:1px solid #ddd; box-sizing:border-box;">
         <div style="margin:10px 0;">
             <label style="display:inline; margin-right:15px; font-weight:400;"><input type="radio" name="leaveType" value="annual" checked> Annual Leave</label>
-            <label style="display:inline; font-weight:400;"><input type="radio" name="leaveType" value="lsl"> Long Service Leave</label>
+            <label style="display:inline; margin-right:15px; font-weight:400;"><input type="radio" name="leaveType" value="lsl"> LSL</label>
+            <label style="display:inline; font-weight:400;"><input type="radio" name="leaveType" value="personal"> Personal</label>
         </div>
         <button class="btn-add" onclick="addHistoryEntry()">Add Leave Period</button>
         <div id="historyList" style="margin-top:15px;"></div>
@@ -168,6 +184,29 @@
         </div>
         <button class="btn-opt" onclick="optimizeLeave()">Find Best Leave Dates</button>
         <div id="optimizationResults" style="margin-top: 15px;"></div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">What-If Calculator</div>
+        <p style="font-size: 0.8em; color: #666;">See the impact of taking leave without saving to history.</p>
+        <div class="input-group">
+            <label>Leave Type</label>
+            <select id="whatifType" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                <option value="annual">Annual Leave</option>
+                <option value="lsl">Long Service Leave</option>
+                <option value="personal">Personal Leave</option>
+            </select>
+        </div>
+        <label>From</label>
+        <div class="date-row" style="margin-bottom:10px;">
+            <select id="whatifStartDay"></select><select id="whatifStartMonth"></select><select id="whatifStartYear"></select>
+        </div>
+        <label>To</label>
+        <div class="date-row" style="margin-bottom:10px;">
+            <select id="whatifEndDay"></select><select id="whatifEndMonth"></select><select id="whatifEndYear"></select>
+        </div>
+        <button class="btn-add" onclick="calculateWhatIf()">Calculate What-If</button>
+        <div id="whatifResults" style="margin-top:15px;font-size:0.9em;color:#333;line-height:1.5;"></div>
     </div>
 
     <script src="app.js"></script>

@@ -58,8 +58,12 @@ function getState() {
     weeklyHours: Number(document.getElementById('weeklyHours')?.value || 0),
     startBalance: Number(document.getElementById('startBalance')?.value || 0),
     roster: DAY_IDS.map(id => !!document.getElementById(id)?.checked),
-    annualTakenHours: items.reduce((s, el) => s + (el.dataset.type !== 'lsl' ? Number(el.dataset.amount || 0) : 0), 0),
+    annualTakenHours: items.reduce((s, el) => s + ((!el.dataset.type || el.dataset.type === 'annual') ? Number(el.dataset.amount || 0) : 0), 0),
     lslTakenHours: items.reduce((s, el) => s + (el.dataset.type === 'lsl' ? Number(el.dataset.amount || 0) : 0), 0),
+    personalTakenHours: items.reduce((s, el) => s + (el.dataset.type === 'personal' ? Number(el.dataset.amount || 0) : 0), 0),
+    casualLoading: !!document.getElementById('casualLoading')?.checked,
+    enableProjectDate: !!document.getElementById('enableProjectDate')?.checked,
+    projectDate: parseDropdownDate('project'),
     resignationMode: !!document.getElementById('resignationMode')?.checked,
     targetLastDay: parseDropdownDate('target'),
     noticeWeeks: Number(document.getElementById('noticeWeeks')?.value || 0),
@@ -89,7 +93,7 @@ function calculateServiceYears(start, end) {
 }
 
 function calculateLeaveFromState(state) {
-  const today = new Date();
+  const today = state.enableProjectDate && isValidDate(state.projectDate) ? state.projectDate : new Date();
   const serviceYears = Math.max(0, calculateServiceYears(state.hireDate, today));
   const annualPerYearHours = state.weeklyHours * 4;
   let annualAccrued = annualPerYearHours * serviceYears;
@@ -105,15 +109,23 @@ function calculateLeaveFromState(state) {
   const lslWeeksAccrued = serviceYears * (8.6667 / 10);
   const lslTakenWeeks = state.lslTakenHours / state.weeklyHours;
   const lslWeeks = Math.max(0, lslWeeksAccrued - lslTakenWeeks);
+  const personalPerYearHours = (state.weeklyHours / state.roster.filter(Boolean).length) * 10;
+  const personalAccrued = personalPerYearHours * serviceYears;
+  const personalHours = Math.max(0, personalAccrued - state.personalTakenHours);
 
   return {
     annualHours: finalHours,
     annualDays: finalHours / hrsPerDay,
     lslWeeks,
+    personalHours,
     serviceYears
   };
 }
 
+
+function getEffectiveRate(state) {
+  return state.hourlyRate * (state.casualLoading ? 1.25 : 1);
+}
 
 function calculateExitStrategies(state, output) {
   if (!state.resignationMode) return null;
@@ -122,14 +134,15 @@ function calculateExitStrategies(state, output) {
   const availableDays = output.annualHours / hrsPerDay;
   const noticeDaysRequired = (state.noticeWeeks * 7) * (workingDays / 7);
   const coverage = availableDays >= noticeDaysRequired ? 'Fully covered' : (availableDays > 0 ? 'Partially covered' : 'Not covered');
+  const effRate = getEffectiveRate(state);
 
   const loadingMultiplier = 1 + state.leaveLoading / 100;
-  const payoutValue = output.annualHours * state.hourlyRate * loadingMultiplier;
+  const payoutValue = output.annualHours * effRate * loadingMultiplier;
   const payoutSuperLost = payoutValue * (state.superRate / 100);
 
   const extraAccrualHours = Math.max(0, Math.min(availableDays, noticeDaysRequired)) * (state.weeklyHours * 4 / 260);
   const runDownHours = output.annualHours + extraAccrualHours;
-  const runDownValue = runDownHours * state.hourlyRate;
+  const runDownValue = runDownHours * effRate;
 
   return { coverage, noticeDaysRequired, availableDays, payoutValue, payoutSuperLost, runDownValue, extraAccrualHours, leaveLoading: state.leaveLoading };
 }
@@ -178,7 +191,7 @@ function renderNoticePlanner(state) {
   }
   const workingDays = state.roster.filter(Boolean).length;
   const dailyHours = state.weeklyHours / workingDays;
-  const dailyPay = dailyHours * state.hourlyRate;
+  const dailyPay = dailyHours * getEffectiveRate(state);
   const requiredDays = Math.max(0, Math.round(state.noticeWeeks * workingDays));
   const acceptedDays = Math.min(requiredDays, Math.max(0, Math.round(state.acceptedNoticeDays)));
   const fullDate = findResignationDate(state.targetLastDay, requiredDays, state);
@@ -204,19 +217,17 @@ function renderNoticePlanner(state) {
 }
 
 function renderValidation(msg) {
-  const annual = document.getElementById('resAnnual');
-  const days = document.getElementById('resDays');
-  const lsl = document.getElementById('resLSL');
-  annual.innerText = '—';
-  days.innerText = '—';
-  lsl.innerText = '—';
-  annual.title = msg;
-  days.title = msg;
-  lsl.title = msg;
+  ['resAnnual', 'resDays', 'resLSL', 'resPersonal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.innerText = '—'; el.title = msg; }
+  });
 }
 
 function clearValidation() {
-  ['resAnnual', 'resDays', 'resLSL'].forEach(id => document.getElementById(id).title = '');
+  ['resAnnual', 'resDays', 'resLSL', 'resPersonal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.title = '';
+  });
 }
 
 function calculateLeave() {
@@ -234,6 +245,8 @@ function calculateLeave() {
   document.getElementById('resAnnual').innerText = output.annualHours.toFixed(2);
   document.getElementById('resDays').innerText = output.annualDays.toFixed(1);
   document.getElementById('resLSL').innerText = output.lslWeeks.toFixed(3);
+  const personalEl = document.getElementById('resPersonal');
+  if (personalEl) personalEl.innerText = output.personalHours.toFixed(2);
 }
 
 async function fetchHolidays() { /* unchanged */
@@ -258,6 +271,12 @@ function toggleMode() {
   scheduleRecalculate();
 }
 
+function toggleProjectDate() {
+  const section = document.getElementById('projectDateSection');
+  if (section) section.style.display = document.getElementById('enableProjectDate')?.checked ? 'flex' : 'none';
+  scheduleRecalculate();
+}
+
 function saveToDB() {
   if (!db) return;
   const hireDate = parseDropdownDate('hire');
@@ -270,6 +289,9 @@ function saveToDB() {
     startBalance: document.getElementById('startBalance')?.value || 0,
     roster: DAY_IDS.map(id => !!document.getElementById(id)?.checked),
     history: Array.from(document.querySelectorAll('.history-item')).map(item => ({ id: item.dataset.id, note: item.querySelector('.note-text').innerText, amount: Number(item.dataset.amount), type: item.dataset.type })),
+    casualLoading: !!document.getElementById('casualLoading')?.checked,
+    enableProjectDate: !!document.getElementById('enableProjectDate')?.checked,
+    projectDate: parseDropdownDate('project')?.toISOString() || null,
     resignationMode: !!document.getElementById('resignationMode')?.checked,
     targetLastDay: parseDropdownDate('target')?.toISOString() || null,
     noticeWeeks: Number(document.getElementById('noticeWeeks')?.value || 0),
@@ -289,7 +311,10 @@ function loadFromDB() {
     if (document.getElementById('calcMode')) document.getElementById('calcMode').value = d.calcMode || 'startDate';
     if (document.getElementById('weeklyHours')) document.getElementById('weeklyHours').value = d.weeklyHours || 38;
     if (document.getElementById('startBalance')) document.getElementById('startBalance').value = d.startBalance || 0;
-    if (d.roster) d.roster.forEach((c, i) => { const el = document.getElementById(DAY_IDS[i]); if (el) el.checked = c; });
+    if (document.getElementById('roster')) d.roster.forEach((c, i) => { const el = document.getElementById(DAY_IDS[i]); if (el) el.checked = c; });
+    if (document.getElementById('casualLoading')) document.getElementById('casualLoading').checked = !!d.casualLoading;
+    if (document.getElementById('enableProjectDate')) document.getElementById('enableProjectDate').checked = !!d.enableProjectDate;
+    setDropdownDate('project', d.projectDate);
     if (document.getElementById('resignationMode')) document.getElementById('resignationMode').checked = !!d.resignationMode;
     setDropdownDate('target', d.targetLastDay);
     if (document.getElementById('noticeWeeks')) document.getElementById('noticeWeeks').value = d.noticeWeeks ?? 2;
@@ -318,7 +343,32 @@ function addHistoryEntry() {
   scheduleRecalculate();
 }
 
-function appendHistoryDOM(h) { const div = document.createElement('div'); div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount; div.dataset.type = h.type || 'annual'; const label = h.type === 'lsl' ? 'LSL' : 'AL'; div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs) [${label}]</span><button class="btn-del" onclick="this.parentElement.remove(); scheduleRecalculate();">Delete</button>`; document.getElementById('historyList').appendChild(div); }
+function appendHistoryDOM(h) { const div = document.createElement('div'); div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount; div.dataset.type = h.type || 'annual'; const label = h.type === 'lsl' ? 'LSL' : h.type === 'personal' ? 'Personal' : 'AL'; div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs) [${label}]</span><button class="btn-del" onclick="this.parentElement.remove(); scheduleRecalculate();">Delete</button>`; document.getElementById('historyList').appendChild(div); }
+
+function calculateWhatIf() {
+  const el = document.getElementById('whatifResults');
+  if (!el) return;
+  const start = parseDropdownDate('whatifStart');
+  const end = parseDropdownDate('whatifEnd');
+  const weeklyHours = Number(document.getElementById('weeklyHours')?.value || 0);
+  const workingDays = DAY_IDS.filter(id => document.getElementById(id)?.checked).length;
+  if (!start || !end || workingDays === 0) { el.innerHTML = 'Select valid dates and ensure at least one working day.'; return; }
+  const daily = weeklyHours / workingDays;
+  let total = 0;
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    if (document.getElementById(DAY_IDS[d.getDay()])?.checked && !nswHolidays.includes(d.toISOString().split('T')[0])) total += daily;
+  }
+  const type = document.getElementById('whatifType')?.value || 'annual';
+  const typeLabel = type === 'lsl' ? 'LSL' : type === 'personal' ? 'Personal' : 'Annual';
+  const resId = type === 'lsl' ? 'resLSL' : type === 'personal' ? 'resPersonal' : 'resAnnual';
+  const res = document.getElementById(resId);
+  const currentVal = res && res.innerText !== '—' ? Number(res.innerText) : null;
+  const remaining = type === 'lsl'
+    ? Math.max(0, (currentVal !== null ? currentVal : 0) - total / weeklyHours)
+    : Math.max(0, (currentVal !== null ? currentVal : 0) - total);
+  const unit = type === 'lsl' ? 'weeks' : 'hrs';
+  el.innerHTML = `${typeLabel} leave taken: <b>${total.toFixed(1)} hrs</b> (${(total / daily).toFixed(1)} days).<br>Estimated remaining ${typeLabel.toLowerCase()} balance: <b>${remaining.toFixed(type === 'lsl' ? 3 : 2)}</b> ${unit}.`;
+}
 function optimizeLeave() { /* unchanged logic */ const resultsDiv = document.getElementById('optimizationResults'); resultsDiv.innerHTML = 'Analyzing...'; if (nswHolidays.length === 0) return; const tips = []; const today = new Date(); const endDate = parseDropdownDate('opt'); const hData = nswHolidays.map(h => new Date(h)).sort((a, b) => a - b); hData.forEach(h => { if (h < today || h > endDate) return; const day = h.getDay(); const dateStr = h.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }); if (day === 2) tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: 'Take Monday off to create a 4-day weekend.', mult: '4 days off for 1 day leave' }); if (day === 4) tips.push({ title: `Long Weekend Hack: ${dateStr}`, desc: 'Take Friday off to create a 4-day weekend.', mult: '4 days off for 1 day leave' }); if (day === 3) tips.push({ title: `Mid-week Win: ${dateStr}`, desc: 'Take Mon+Tue OR Thu+Fri off for a 5-day break.', mult: '5 days off for 2 days leave' }); if (day === 5 && (h.getMonth() === 2 || h.getMonth() === 3)) tips.push({ title: 'Easter Mega-Break', desc: 'Take the 4 days after Easter Monday off.', mult: '10 days off for 4 days leave' }); if (h.getMonth() === 11 && h.getDate() === 25) tips.push({ title: 'End of Year Reset', desc: "Take the 3 days between Boxing Day and New Year's Day.", mult: '10 days off for 3 days leave' }); }); const uniqueTips = Array.from(new Set(tips.map(a => JSON.stringify(a)))).map(a => JSON.parse(a)); resultsDiv.innerHTML = uniqueTips.length > 0 ? uniqueTips.map(t => `<div class="opt-item"><span class="opt-tag">${t.title}</span><br>${t.desc}<br><small style="color:#28a745;"><b>${t.mult}</b></small></div>`).join('') : 'No high-value clusters found in this period.'; }
 
 function initCollapsibleSections() {
@@ -349,6 +399,9 @@ function initializeUI() {
   populateDropdowns('leaveEnd', curYear - 1, curYear + 2);
   populateDropdowns('opt', curYear, curYear + 2);
   populateDropdowns('target', curYear, curYear + 2);
+  populateDropdowns('project', curYear, curYear + 2);
+  populateDropdowns('whatifStart', curYear - 1, curYear + 2);
+  populateDropdowns('whatifEnd', curYear - 1, curYear + 2);
   document.getElementById('optDay').value = 31;
   document.getElementById('targetDay').value = new Date().getDate();
   document.getElementById('targetMonth').value = new Date().getMonth();
