@@ -109,6 +109,10 @@
             <select id="leaveEndDay"></select><select id="leaveEndMonth"></select><select id="leaveEndYear"></select>
         </div>
         <input type="text" id="leaveNote" placeholder="e.g. Vacation" style="width:100%; padding:10px; border-radius:6px; border:1px solid #ddd; box-sizing:border-box;">
+        <div style="margin:10px 0;">
+            <label style="display:inline; margin-right:15px; font-weight:400;"><input type="radio" name="leaveType" value="annual" checked> Annual Leave</label>
+            <label style="display:inline; font-weight:400;"><input type="radio" name="leaveType" value="lsl"> Long Service Leave</label>
+        </div>
         <button class="btn-add" onclick="addHistoryEntry()">Add Leave Period</button>
         <div id="historyList" style="margin-top:15px;"></div>
     </div>
