@@ -12,6 +12,7 @@
         .section-title { font-weight: bold; color: #007bff; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; text-transform: uppercase; font-size: 0.8em; cursor: pointer; user-select: none; }
         .section-title::before { content: '▶ '; font-size: 0.7em; display: inline-block; transition: transform .2s; }
         .section-title.open::before { transform: rotate(90deg); }
+        .section-subtitle { display: block; font-weight: 400; text-transform: none; font-size: 0.75rem; color: #6c757d; margin-top: 1px; }
         label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.9em; }
         .date-row { display: flex; gap: 5px; }
         select { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 1em; height: 45px; }
@@ -55,7 +56,7 @@
     </div>
 
     <div class="card">
-        <div class="section-title">Employment Details</div>
+        <div class="section-title">Employment Details<span class="section-subtitle">Hire date, hours, roster &amp; leave mode</span></div>
         <div class="input-group">
             <label>Initial Hire Date</label>
             <div class="date-row">
@@ -111,7 +112,7 @@
     </div>
 
     <div class="card">
-        <div class="section-title">Leave Optimizer</div>
+        <div class="section-title">Leave Optimizer<span class="section-subtitle">Find high-value holiday clusters</span></div>
         <p style="font-size: 0.8em; color: #666;">Scan for high-value holiday clusters.</p>
         <div class="input-group">
             <label>Calculate Until:</label>
@@ -126,7 +127,7 @@
     </div>
 
     <div class="card">
-        <div class="section-title">What-If Calculator</div>
+        <div class="section-title">What-If Calculator<span class="section-subtitle">Preview leave impact, nothing saved</span></div>
         <p style="font-size: 0.8em; color: #666;">See the impact of taking leave without saving to history.</p>
         <div class="input-group">
             <label>Leave Type</label>
@@ -149,7 +150,7 @@
     </div>
 
     <div class="card">
-        <div class="section-title">Log Leave Taken</div>
+        <div class="section-title">Log Leave Taken<span class="section-subtitle">Record leave periods by type</span></div>
         <label>From</label>
         <div class="date-row" style="margin-bottom: 10px;">
             <select id="leaveStartDay"></select><select id="leaveStartMonth"></select><select id="leaveStartYear"></select>
@@ -169,7 +170,7 @@
     </div>
 
     <div class="card">
-        <div class="section-title">Exit Strategy</div>
+        <div class="section-title">Exit Strategy<span class="section-subtitle">Payout vs run-down comparison</span></div>
         <div class="input-group">
             <label><input type="checkbox" id="resignationMode"> Enable exit strategy analysis</label>
         </div>
