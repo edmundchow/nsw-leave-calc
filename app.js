@@ -249,7 +249,16 @@ function calculateLeave() {
   if (personalEl) personalEl.innerText = output.personalHours.toFixed(2);
 }
 
-async function fetchHolidays() { /* unchanged */
+const NSW_HOLIDAY_FALLBACK = [
+  "2025-01-01","2025-01-27","2025-04-18","2025-04-21","2025-04-25","2025-06-09","2025-10-06","2025-12-25","2025-12-26",
+  "2026-01-01","2026-01-26","2026-04-03","2026-04-06","2026-04-25","2026-06-08","2026-10-05","2026-12-25","2026-12-28",
+  "2027-01-01","2027-01-26","2027-03-26","2027-03-29","2027-04-26","2027-06-14","2027-10-04","2027-12-25","2027-12-27","2027-12-28",
+  "2028-01-03","2028-01-26","2028-04-14","2028-04-17","2028-04-25","2028-06-12","2028-10-02","2028-12-25","2028-12-26",
+  "2029-01-01","2029-01-26","2029-03-30","2029-04-02","2029-04-25","2029-06-11","2029-10-01","2029-12-25","2029-12-26",
+  "2030-01-01","2030-01-28","2030-04-19","2030-04-22","2030-04-25","2030-06-10","2030-10-07","2030-12-25","2030-12-26"
+];
+
+async function fetchHolidays() {
   try {
     const apiUrl = 'https://data.gov.au/data/api/3/action/datastore_search?resource_id=d256f282-ba27-4c64-ade7-0d7ad2530554&limit=1000';
     const response = await fetch(apiUrl);
@@ -258,8 +267,19 @@ async function fetchHolidays() { /* unchanged */
       const d = r.Date.toString();
       return `${d.substring(0, 4)}-${d.substring(4, 6)}-${d.substring(6, 8)}`;
     });
+    if (db) {
+      db.transaction('userData', 'readwrite').objectStore('userData').put(nswHolidays, 'holidays');
+    }
   } catch (e) {
-    nswHolidays = ["2026-01-01", "2026-01-26", "2026-04-03", "2026-04-06", "2026-04-25", "2026-06-08", "2026-10-05", "2026-12-25", "2026-12-28", "2027-01-01", "2027-01-26", "2027-03-26", "2027-03-29", "2027-04-26", "2027-06-14", "2027-10-04", "2027-12-25", "2027-12-27", "2027-12-28"];
+    if (db) {
+      const tx = db.transaction('userData', 'readonly').objectStore('userData').get('holidays');
+      tx.onsuccess = (e2) => {
+        nswHolidays = e2.target.result || NSW_HOLIDAY_FALLBACK;
+        calculateLeave();
+      };
+      return;
+    }
+    nswHolidays = NSW_HOLIDAY_FALLBACK;
   }
   calculateLeave();
 }
