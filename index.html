@@ -55,7 +55,7 @@
     </div>
 
     <div class="card">
-        <div class="section-title">Employment Constants</div>
+        <div class="section-title">Employment Details</div>
         <div class="input-group">
             <label>Initial Hire Date</label>
             <div class="date-row">
@@ -77,6 +77,18 @@
                 <select id="projectDay" onchange="calculateLeave(); saveToDB();"></select>
                 <select id="projectMonth" onchange="calculateLeave(); saveToDB();"></select>
                 <select id="projectYear" onchange="calculateLeave(); saveToDB();"></select>
+            </div>
+        </div>
+        <div class="input-group">
+            <label>Working Days</label>
+            <div class="roster-grid">
+                <label><input type="checkbox" id="sun" onchange="calculateLeave(); saveToDB();">S</label>
+                <label><input type="checkbox" id="mon" checked onchange="calculateLeave(); saveToDB();">M</label>
+                <label><input type="checkbox" id="tue" checked onchange="calculateLeave(); saveToDB();">T</label>
+                <label><input type="checkbox" id="wed" checked onchange="calculateLeave(); saveToDB();">W</label>
+                <label><input type="checkbox" id="thu" checked onchange="calculateLeave(); saveToDB();">T</label>
+                <label><input type="checkbox" id="fri" checked onchange="calculateLeave(); saveToDB();">F</label>
+                <label><input type="checkbox" id="sat" onchange="calculateLeave(); saveToDB();">S</label>
             </div>
         </div>
     </div>
@@ -103,19 +115,6 @@
     </div>
 
     <div class="card">
-        <div class="section-title">Working Roster</div>
-        <div class="roster-grid">
-            <label><input type="checkbox" id="sun" onchange="calculateLeave(); saveToDB();">S</label>
-            <label><input type="checkbox" id="mon" checked onchange="calculateLeave(); saveToDB();">M</label>
-            <label><input type="checkbox" id="tue" checked onchange="calculateLeave(); saveToDB();">T</label>
-            <label><input type="checkbox" id="wed" checked onchange="calculateLeave(); saveToDB();">W</label>
-            <label><input type="checkbox" id="thu" checked onchange="calculateLeave(); saveToDB();">T</label>
-            <label><input type="checkbox" id="fri" checked onchange="calculateLeave(); saveToDB();">F</label>
-            <label><input type="checkbox" id="sat" onchange="calculateLeave(); saveToDB();">S</label>
-        </div>
-    </div>
-
-    <div class="card">
         <div class="section-title">Log Leave Taken</div>
         <label>From</label>
         <div class="date-row" style="margin-bottom: 10px;">
@@ -135,11 +134,10 @@
         <div id="historyList" style="margin-top:15px;"></div>
     </div>
 
-
     <div class="card">
-        <div class="section-title">Resignation Mode</div>
+        <div class="section-title">Exit Strategy</div>
         <div class="input-group">
-            <label><input type="checkbox" id="resignationMode"> Enable resignation strategy analysis</label>
+            <label><input type="checkbox" id="resignationMode"> Enable exit strategy analysis</label>
         </div>
         <div class="input-group">
             <label>Target Last Day</label>
@@ -167,7 +165,7 @@
             <label>Leave Loading (%)</label>
             <input type="number" id="leaveLoading" value="0" min="0" step="0.1">
         </div>
-        <div id="strategyResults" style="font-size:0.9em;color:#333;line-height:1.5;">Enable resignation mode to compare payout vs run-down.</div>
+        <div id="strategyResults" style="font-size:0.9em;color:#333;line-height:1.5;">Enable exit strategy analysis to compare payout vs run-down.</div>
         <div id="noticePlannerResults" style="font-size:0.9em;color:#333;line-height:1.5;margin-top:10px;"></div>
     </div>
 

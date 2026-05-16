@@ -11,7 +11,7 @@
 
 | File | Lines | Purpose |
 |---|---|---|
-| `index.html` | 220+ | UI shell with inline CSS; 7 collapsible card sections + what-if card |
+| `index.html` | 220+ | UI shell with inline CSS; 6 collapsible card sections |
 | `app.js` | 400+ | All logic: calculations, persistence, collapsible sections |
 | `sw.js` | 38 | Service worker (network-first, cache-fallback, version `v16`) |
 | `manifest.json` | 15 | PWA install manifest |
@@ -51,15 +51,15 @@
 - Shows hours deducted and remaining balance — nothing saved to history
 - Uses the same working-day/holiday exclusion logic as the history system
 
-### Phase 2 — Resignation Mode
-- Strategy comparison: lump sum payout vs. run-down during notice period
+### Phase 2 — Exit Strategy
+- Strategy comparison (Exit Strategy section): lump sum payout vs. run-down during notice period
 - Notice planner: back-calculates submission dates accounting for working days and public holidays
 - Notice shortfall display with income loss and super loss estimates
 - Leave loading toggle (default 0%, configurable per award)
 - Notice planner output shows two scenarios: full notice vs. reduced/immediate release
 
 ### UI Features
-- All 6 section cards collapsible, collapsed by default
+- All 6 section cards collapsible, collapsed by default: Employment Details, Annual Leave Calculation, Log Leave Taken, Exit Strategy, Leave Optimizer, What-If Calculator
 - Section titles have clickable toggle with ▶/▼ indicator
 - `initCollapsibleSections()` wraps card content via DOM manipulation at runtime
 

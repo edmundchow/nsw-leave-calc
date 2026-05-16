@@ -151,7 +151,7 @@ function renderStrategies(result) {
   const el = document.getElementById('strategyResults');
   if (!el) return;
   if (!result) {
-    el.innerHTML = 'Enable resignation mode to compare payout vs run-down.';
+    el.innerHTML = 'Enable exit strategy analysis to compare payout vs run-down.';
     return;
   }
   const diff = result.runDownValue - (result.payoutValue - result.payoutSuperLost);
