@@ -1,6 +1,7 @@
 {
   "name": "NSW Leave Tracker",
   "short_name": "LeaveCalc",
+  "scope": "./",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f0f2f5",

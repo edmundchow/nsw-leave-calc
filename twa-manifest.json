@@ -1,0 +1,51 @@
+{
+  "packageId": "com.nswleavecalc.app",
+  "host": "edmundchow.github.io",
+  "name": "NSW Leave Tracker",
+  "launcherName": "LeaveCalc",
+  "display": "standalone",
+  "themeColor": "#007BFF",
+  "themeColorDark": "#007BFF",
+  "navigationColor": "#007BFF",
+  "navigationColorDark": "#007BFF",
+  "navigationDividerColor": "#007BFF",
+  "navigationDividerColorDark": "#007BFF",
+  "backgroundColor": "#F0F2F5",
+  "enableNotifications": true,
+  "startUrl": "/nsw-leave-calc/",
+  "iconUrl": "https://edmundchow.github.io/nsw-leave-calc/icon.png",
+  "maskableIconUrl": "https://edmundchow.github.io/nsw-leave-calc/icon.png",
+  "monochromeIconUrl": "https://edmundchow.github.io/nsw-leave-calc/icon.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "signing-key.keystore",
+    "alias": "leavecalc"
+  },
+  "appVersionName": "1",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap",
+  "webManifestUrl": "https://edmundchow.github.io/nsw-leave-calc/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": "none"
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "minSdkVersion": 21,
+  "orientation": "default",
+  "fingerprints": [
+    {
+      "name": "default",
+      "value": "80878d002042b789fd94f8c069b21b1be2851ed1b0f791dbbecd190c3a74e216"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "displayOverride": [],
+  "appVersion": "1"
+}

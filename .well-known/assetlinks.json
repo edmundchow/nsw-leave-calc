@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.nswleavecalc.app",
+        "sha256_cert_fingerprints": ["80878d002042b789fd94f8c069b21b1be2851ed1b0f791dbbecd190c3a74e216"]
+      }
+    }]
