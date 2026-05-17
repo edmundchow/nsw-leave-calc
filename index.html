@@ -204,6 +204,15 @@
         <div id="noticePlannerResults" style="font-size:0.9em;color:#333;line-height:1.5;margin-top:10px;"></div>
     </div>
 
+    <div class="card">
+        <div class="section-title">Import / Export<span class="section-subtitle">Backup or transfer your data</span></div>
+        <p style="font-size: 0.8em; color: #666;">Save your employment details, leave history, and settings to a file, or restore them later.</p>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-add" style="flex:1;" onclick="exportData()">Export Data</button>
+            <button class="btn-add" style="flex:1;" onclick="importData()">Import Data</button>
+        </div>
+    </div>
+
     <script src="app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {

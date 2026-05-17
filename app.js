@@ -433,6 +433,99 @@ function optimizeLeave() {
     : 'No high-value clusters found in this period.';
 }
 
+function collectAllData() {
+  const hireDate = parseDropdownDate('hire');
+  const balanceDate = parseDropdownDate('balance');
+  const projectDate = parseDropdownDate('project');
+  const targetLastDay = parseDropdownDate('target');
+  return {
+    exportVersion: 1,
+    exportedAt: new Date().toISOString(),
+    hireDate: hireDate ? hireDate.toISOString() : null,
+    calcMode: document.getElementById('calcMode')?.value || 'startDate',
+    weeklyHours: document.getElementById('weeklyHours')?.value || 38,
+    balanceDate: balanceDate ? balanceDate.toISOString() : null,
+    startBalance: document.getElementById('startBalance')?.value || 0,
+    roster: DAY_IDS.map(id => !!document.getElementById(id)?.checked),
+    history: Array.from(document.querySelectorAll('.history-item')).map(item => ({
+      id: item.dataset.id,
+      note: item.querySelector('.note-text').innerText,
+      amount: Number(item.dataset.amount),
+      type: item.dataset.type
+    })),
+    casualLoading: !!document.getElementById('casualLoading')?.checked,
+    enableProjectDate: !!document.getElementById('enableProjectDate')?.checked,
+    projectDate: projectDate ? projectDate.toISOString() : null,
+    resignationMode: !!document.getElementById('resignationMode')?.checked,
+    targetLastDay: targetLastDay ? targetLastDay.toISOString() : null,
+    noticeWeeks: Number(document.getElementById('noticeWeeks')?.value || 0),
+    acceptedNoticeDays: Number(document.getElementById('acceptedNoticeDays')?.value || 0),
+    hourlyRate: Number(document.getElementById('hourlyRate')?.value || 0),
+    superRate: Number(document.getElementById('superRate')?.value || 11.5),
+    leaveLoading: Number(document.getElementById('leaveLoading')?.value || 0),
+    holidays: nswHolidays
+  };
+}
+
+function exportData() {
+  const data = collectAllData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `nsw-leave-tracker-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!data.exportVersion) { alert('Invalid import file.'); return; }
+        applyImportedData(data);
+        alert('Import successful! Your data has been restored.');
+      } catch {
+        alert('Invalid import file.');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function applyImportedData(data) {
+  setDropdownDate('hire', data.hireDate);
+  setDropdownDate('balance', data.balanceDate);
+  setDropdownDate('project', data.projectDate);
+  setDropdownDate('target', data.targetLastDay);
+  if (document.getElementById('calcMode')) document.getElementById('calcMode').value = data.calcMode || 'startDate';
+  if (document.getElementById('weeklyHours')) document.getElementById('weeklyHours').value = data.weeklyHours || 38;
+  if (document.getElementById('startBalance')) document.getElementById('startBalance').value = data.startBalance || 0;
+  DAY_IDS.forEach((id, i) => { const el = document.getElementById(id); if (el) el.checked = !!data.roster?.[i]; });
+  if (document.getElementById('casualLoading')) document.getElementById('casualLoading').checked = !!data.casualLoading;
+  if (document.getElementById('enableProjectDate')) document.getElementById('enableProjectDate').checked = !!data.enableProjectDate;
+  if (document.getElementById('resignationMode')) document.getElementById('resignationMode').checked = !!data.resignationMode;
+  if (document.getElementById('noticeWeeks')) document.getElementById('noticeWeeks').value = data.noticeWeeks ?? 2;
+  if (document.getElementById('acceptedNoticeDays')) document.getElementById('acceptedNoticeDays').value = data.acceptedNoticeDays ?? 0;
+  if (document.getElementById('hourlyRate')) document.getElementById('hourlyRate').value = data.hourlyRate ?? 35;
+  if (document.getElementById('superRate')) document.getElementById('superRate').value = data.superRate ?? 11.5;
+  if (document.getElementById('leaveLoading')) document.getElementById('leaveLoading').value = data.leaveLoading ?? 0;
+  document.getElementById('historyList').innerHTML = '';
+  if (data.history) data.history.forEach(h => appendHistoryDOM(h));
+  if (data.holidays) { nswHolidays = data.holidays; if (db) db.transaction('userData', 'readwrite').objectStore('userData').put(nswHolidays, 'holidays'); }
+  toggleMode();
+  scheduleRecalculate();
+  saveToDB();
+}
+
 function initCollapsibleSections() {
   document.querySelectorAll('.card').forEach(card => {
     const title = card.querySelector('.section-title');
