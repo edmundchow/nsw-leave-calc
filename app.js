@@ -5,6 +5,15 @@ let nswHolidays = [];
 let db;
 let calcTimer;
 
+function showDialog(msg) {
+  const existing = document.getElementById('oc-dialog-overlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'oc-dialog-overlay';
+  overlay.innerHTML = `<div style="position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:9999;" onclick="this.parentElement.remove()"><div style="background:#fff;padding:28px 32px 20px;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.18);max-width:380px;width:90%;text-align:center;font-family:-apple-system,system-ui,sans-serif;" onclick="event.stopPropagation()"><p style="margin:0 0 6px;font-size:1.1em;color:#1c1e21;line-height:1.5;">${msg}</p><button style="margin-top:16px;padding:8px 28px;background:#007bff;color:#fff;border:none;border-radius:8px;font-size:0.95em;font-weight:600;cursor:pointer;" onclick="this.closest('#oc-dialog-overlay').remove()">OK</button></div></div>`;
+  document.body.appendChild(overlay);
+}
+
 function isValidDate(date) {
   return date instanceof Date && !Number.isNaN(date.getTime());
 }
@@ -364,7 +373,7 @@ function addHistoryEntry() {
   const weeklyHours = Number(document.getElementById('weeklyHours')?.value || 38);
   const workingDays = DAY_IDS.filter(id => document.getElementById(id)?.checked).length;
   if (!start || !end || workingDays === 0) return;
-  if (end < start) { alert('End date must be on or after start date.'); return; }
+  if (end < start) { showDialog('End date must be on or after start date.'); return; }
   const daily = weeklyHours / workingDays;
   let total = 0;
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
@@ -503,11 +512,11 @@ function importData() {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        if (!data.exportVersion) { alert('Invalid import file.'); return; }
+        if (!data.exportVersion) { showDialog('Invalid import file.'); return; }
         applyImportedData(data);
-        alert('Import successful! Your data has been restored.');
+        showDialog('Import successful! Your data has been restored.');
       } catch {
-        alert('Invalid import file.');
+        showDialog('Invalid import file.');
       }
     };
     reader.readAsText(file);

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v19';
+const CACHE_VERSION = 'v20';
 const CACHE_NAME = `nsw-leave-${CACHE_VERSION}`;
 const ASSETS = ['./', './index.html', './app.js', './style.css', './manifest.json', './icon.png'];
 
