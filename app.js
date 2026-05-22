@@ -51,14 +51,25 @@ function setDropdownDate(prefix, dateStr) {
 
 function getState() {
   const items = Array.from(document.querySelectorAll('.history-item'));
+  const mode = document.getElementById('calcMode')?.value || 'startDate';
+  const balanceDate = parseDropdownDate('balance');
+  const balanceDateMs = balanceDate ? balanceDate.getTime() : 0;
   return {
-    mode: document.getElementById('calcMode')?.value || 'startDate',
+    mode,
     hireDate: parseDropdownDate('hire'),
-    balanceDate: parseDropdownDate('balance'),
+    balanceDate,
     weeklyHours: Number(document.getElementById('weeklyHours')?.value || 0),
     startBalance: Number(document.getElementById('startBalance')?.value || 0),
     roster: DAY_IDS.map(id => !!document.getElementById(id)?.checked),
-    annualTakenHours: items.reduce((s, el) => s + ((!el.dataset.type || el.dataset.type === 'annual') ? Number(el.dataset.amount || 0) : 0), 0),
+    annualTakenHours: items.reduce((s, el) => {
+      if (el.dataset.type && el.dataset.type !== 'annual') return s;
+      const amount = Number(el.dataset.amount || 0);
+      if (mode === 'knownBalance' && el.dataset.end) {
+        const endDate = new Date(el.dataset.end);
+        if (isValidDate(endDate) && endDate.getTime() <= balanceDateMs) return s;
+      }
+      return s + amount;
+    }, 0),
     lslTakenHours: items.reduce((s, el) => s + (el.dataset.type === 'lsl' ? Number(el.dataset.amount || 0) : 0), 0),
     personalTakenHours: items.reduce((s, el) => s + (el.dataset.type === 'personal' ? Number(el.dataset.amount || 0) : 0), 0),
     casualLoading: !!document.getElementById('casualLoading')?.checked,
@@ -308,7 +319,7 @@ function saveToDB() {
     balanceDate: balanceDate ? balanceDate.toISOString() : null,
     startBalance: document.getElementById('startBalance')?.value || 0,
     roster: DAY_IDS.map(id => !!document.getElementById(id)?.checked),
-    history: Array.from(document.querySelectorAll('.history-item')).map(item => ({ id: item.dataset.id, note: item.querySelector('.note-text').innerText, amount: Number(item.dataset.amount), type: item.dataset.type })),
+    history: Array.from(document.querySelectorAll('.history-item')).map(item => ({ id: item.dataset.id, note: item.querySelector('.note-text').innerText, amount: Number(item.dataset.amount), type: item.dataset.type, startDate: item.dataset.start || '', endDate: item.dataset.end || '' })),
     casualLoading: !!document.getElementById('casualLoading')?.checked,
     enableProjectDate: !!document.getElementById('enableProjectDate')?.checked,
     projectDate: parseDropdownDate('project')?.toISOString() || null,
@@ -359,11 +370,11 @@ function addHistoryEntry() {
     if (document.getElementById(DAY_IDS[d.getDay()])?.checked && !nswHolidays.includes(d.toISOString().split('T')[0])) total += daily;
   }
   const type = document.querySelector('input[name="leaveType"]:checked')?.value || 'annual';
-  appendHistoryDOM({ id: Date.now(), note: document.getElementById('leaveNote').value || 'Leave', amount: total, type });
+  appendHistoryDOM({ id: Date.now(), note: document.getElementById('leaveNote').value || 'Leave', amount: total, type, startDate: start.toISOString(), endDate: end.toISOString() });
   scheduleRecalculate();
 }
 
-function appendHistoryDOM(h) { const div = document.createElement('div'); div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount; div.dataset.type = h.type || 'annual'; const label = h.type === 'lsl' ? 'LSL' : h.type === 'personal' ? 'Personal' : 'AL'; div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs) [${label}]</span><button class="btn-del" onclick="this.parentElement.remove(); scheduleRecalculate();">Delete</button>`; document.getElementById('historyList').appendChild(div); }
+function appendHistoryDOM(h) { const div = document.createElement('div'); div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount; div.dataset.type = h.type || 'annual'; if (h.startDate) div.dataset.start = h.startDate; if (h.endDate) div.dataset.end = h.endDate; const label = h.type === 'lsl' ? 'LSL' : h.type === 'personal' ? 'Personal' : 'AL'; div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs) [${label}]</span><button class="btn-del" onclick="this.parentElement.remove(); scheduleRecalculate();">Delete</button>`; document.getElementById('historyList').appendChild(div); }
 
 function calculateWhatIf() {
   const el = document.getElementById('whatifResults');
@@ -451,7 +462,9 @@ function collectAllData() {
       id: item.dataset.id,
       note: item.querySelector('.note-text').innerText,
       amount: Number(item.dataset.amount),
-      type: item.dataset.type
+      type: item.dataset.type,
+      startDate: item.dataset.start || '',
+      endDate: item.dataset.end || ''
     })),
     casualLoading: !!document.getElementById('casualLoading')?.checked,
     enableProjectDate: !!document.getElementById('enableProjectDate')?.checked,
