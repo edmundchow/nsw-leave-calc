@@ -364,6 +364,7 @@ function addHistoryEntry() {
   const weeklyHours = Number(document.getElementById('weeklyHours')?.value || 38);
   const workingDays = DAY_IDS.filter(id => document.getElementById(id)?.checked).length;
   if (!start || !end || workingDays === 0) return;
+  if (end < start) { alert('End date must be on or after start date.'); return; }
   const daily = weeklyHours / workingDays;
   let total = 0;
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
