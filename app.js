@@ -471,7 +471,17 @@ function loadFromDB() {
       if (document.getElementById('leaveLoading')) document.getElementById('leaveLoading').value = d.leaveLoading ?? 0;
       if (document.getElementById('empAge')) document.getElementById('empAge').value = d.empAge ?? 35;
       if (document.getElementById('estAnnualIncome')) document.getElementById('estAnnualIncome').value = d.estAnnualIncome ?? 0;
-      if (d.history) { document.getElementById('historyList').innerHTML = ''; d.history.forEach(appendHistoryDOM); }
+      if (d.history) {
+        document.getElementById('historyList').innerHTML = '';
+        const seen = new Set();
+        const deduped = d.history.filter(h => {
+          if (!h.id) return true;
+          if (seen.has(h.id)) return false;
+          seen.add(h.id);
+          return true;
+        });
+        deduped.forEach(appendHistoryDOM);
+      }
       toggleMode();
       resolve();
     };
