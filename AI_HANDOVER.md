@@ -13,7 +13,7 @@
 |---|---|---|
 | `index.html` | 220+ | UI shell with inline CSS; 6 collapsible card sections |
 | `app.js` | 400+ | All logic: calculations, persistence, collapsible sections |
-| `sw.js` | 39 | Service worker (network-first, cache-fallback, version `v22` — bump when app files change) |
+| `sw.js` | 50 | Service worker (cache-first with background refresh, version `v23` — bump when app files change) |
 | `manifest.json` | 15 | PWA install manifest |
 | `style.css` | 53 | External styles (used in addition to inline styles) |
 
@@ -118,7 +118,7 @@
 
 ## 5) Known Risks & Gaps
 
-1. **Service worker cache** — `sw.js` has a `CACHE_VERSION` constant (e.g. `v19`). Whenever `index.html`, `app.js`, `style.css`, or other cached assets are modified, bump this version so the browser installs the new files. The app checks for SW updates on load and hourly; a hard refresh (`Cmd+Shift+R` / `Ctrl+Shift+R`) forces immediate pickup.
+1. **Service worker cache** — `sw.js` has a `CACHE_VERSION` constant (e.g. `v23`). Strategy: **cache-first with background network refresh** — the app loads instantly from cache, then updates the cache in the background when online. Whenever `index.html`, `app.js`, `style.css`, or other cached assets are modified, bump this version so the browser installs the new files and purges old caches. A hard refresh (`Cmd+Shift+R` / `Ctrl+Shift+R`) forces immediate pickup.
 2. **No automated tests** — zero test files; regression testing is manual
 2. **UI/logic coupling** — `getState()` and `render*()` functions read/write DOM directly
 3. **Legal assumptions not validated** — notice as working days, holiday exclusions, pro-rata treatment all need domain sign-off

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v22';
+const CACHE_VERSION = 'v23';
 const CACHE_NAME = `nsw-leave-${CACHE_VERSION}`;
 const ASSETS = ['./', './index.html', './app.js', './style.css', './manifest.json', './icon.png'];
 
@@ -21,19 +21,29 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  if (!event.request.url.startsWith('http')) return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
 
-  event.respondWith((async () => {
-    try {
-      const network = await fetch(event.request);
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(event.request, network.clone());
-      return network;
-    } catch {
-      const cached = await caches.match(event.request);
-      if (cached) return cached;
-      if (event.request.mode === 'navigate') return caches.match('./index.html');
-      throw new Error('Offline and not cached');
-    }
-  })());
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      const networkFetch = fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const pathname = url.pathname.replace(/\/$/, '') || '/index.html';
+            const isAsset = ASSETS.some((a) => {
+              const ap = a.replace('./', '/');
+              return pathname === ap || pathname === '/' + ap.replace('/', '');
+            });
+            if (isAsset) {
+              const clone = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            }
+          }
+          return response;
+        })
+        .catch(() => null);
+
+      return cached || networkFetch;
+    })
+  );
 });
