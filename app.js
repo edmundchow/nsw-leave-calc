@@ -374,6 +374,19 @@ function addHistoryEntry() {
   const workingDays = DAY_IDS.filter(id => document.getElementById(id)?.checked).length;
   if (!start || !end || workingDays === 0) return;
   if (end < start) { showDialog('End date must be on or after start date.'); return; }
+  const items = Array.from(document.querySelectorAll('.history-item'));
+  const sMs = start.getTime(), eMs = end.getTime();
+  const conflict = items.find(el => {
+    const es = el.dataset.start ? new Date(el.dataset.start).getTime() : 0;
+    const ee = el.dataset.end ? new Date(el.dataset.end).getTime() : 0;
+    if (!es || !ee) return false;
+    return sMs <= ee && es <= eMs;
+  });
+  if (conflict) {
+    const cn = conflict.querySelector('.note-text')?.innerText || 'Leave';
+    showDialog(`This period overlaps with an existing entry: "${cn}". Delete the existing entry first or adjust the dates.`);
+    return;
+  }
   const daily = weeklyHours / workingDays;
   let total = 0;
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
