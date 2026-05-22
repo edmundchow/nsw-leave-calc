@@ -13,7 +13,7 @@
 |---|---|---|
 | `index.html` | 220+ | UI shell with inline CSS; 6 collapsible card sections |
 | `app.js` | 400+ | All logic: calculations, persistence, collapsible sections |
-| `sw.js` | 39 | Service worker (network-first, cache-fallback, version `v19` — bump when app files change) |
+| `sw.js` | 39 | Service worker (network-first, cache-fallback, version `v22` — bump when app files change) |
 | `manifest.json` | 15 | PWA install manifest |
 | `style.css` | 53 | External styles (used in addition to inline styles) |
 

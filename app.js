@@ -90,7 +90,9 @@ function getState() {
     acceptedNoticeDays: Number(document.getElementById('acceptedNoticeDays')?.value || 0),
     hourlyRate: Number(document.getElementById('hourlyRate')?.value || 0),
     superRate: Number(document.getElementById('superRate')?.value || 11.5),
-    leaveLoading: Number(document.getElementById('leaveLoading')?.value || 0)
+    leaveLoading: Number(document.getElementById('leaveLoading')?.value || 0),
+    empAge: Number(document.getElementById('empAge')?.value || 35),
+    estAnnualIncome: Number(document.getElementById('estAnnualIncome')?.value || 0)
   };
 }
 
@@ -104,6 +106,7 @@ function validateState(state) {
   if (state.noticeWeeks < 0) return 'Notice weeks cannot be negative.';
   if (state.acceptedNoticeDays < 0) return 'Accepted notice days cannot be negative.';
   if (state.resignationMode && state.hourlyRate <= 0) return 'Enter an hourly rate for resignation analysis.';
+  if (state.resignationMode && state.empAge < 16) return 'Age must be at least 16.';
   return null;
 }
 
@@ -147,24 +150,80 @@ function getEffectiveRate(state) {
   return state.hourlyRate * (state.casualLoading ? 1.25 : 1);
 }
 
+function marginalTaxRate(income) {
+  if (income <= 18200) return 0;
+  if (income <= 45000) return 0.16;
+  if (income <= 135000) return 0.30;
+  if (income <= 190000) return 0.37;
+  return 0.45;
+}
+function totalMarginalRate(income) {
+  return marginalTaxRate(income) + 0.02;
+}
+
 function calculateExitStrategies(state, output) {
   if (!state.resignationMode) return null;
   const workingDays = state.roster.filter(Boolean).length;
   const hrsPerDay = state.weeklyHours / workingDays;
   const availableDays = output.annualHours / hrsPerDay;
+  const annualDays = output.annualHours / hrsPerDay;
+  const lslHours = output.lslWeeks * state.weeklyHours;
   const noticeDaysRequired = (state.noticeWeeks * 7) * (workingDays / 7);
-  const coverage = availableDays >= noticeDaysRequired ? 'Fully covered' : (availableDays > 0 ? 'Partially covered' : 'Not covered');
+  const coverage = annualDays >= noticeDaysRequired ? 'Fully covered' : (annualDays > 0 ? 'Partially covered' : 'Not covered');
   const effRate = getEffectiveRate(state);
+  const loadingMul = 1 + state.leaveLoading / 100;
 
-  const loadingMultiplier = 1 + state.leaveLoading / 100;
-  const payoutValue = output.annualHours * effRate * loadingMultiplier;
-  const payoutSuperLost = payoutValue * (state.superRate / 100);
+  const annualPayout = output.annualHours * effRate * loadingMul;
+  const lslPayout = lslHours * effRate * loadingMul;
+  const totalLeavePayout = annualPayout + lslPayout;
 
-  const extraAccrualHours = Math.max(0, Math.min(availableDays, noticeDaysRequired)) * (state.weeklyHours * 4 / 260);
+  const margRate = totalMarginalRate(state.estAnnualIncome);
+  const withholdingRate = 0.32;
+  const taxWithheld = totalLeavePayout * withholdingRate;
+  const taxActual = totalLeavePayout * margRate;
+  const refundDue = taxWithheld - taxActual;
+
+  const etpCap = 235000;
+  const under60 = state.empAge < 60;
+  const etpRate = under60 ? 0.32 : 0.17;
+  const topRate = 0.47;
+  const noticeDays = Math.max(0, state.noticeWeeks * workingDays - state.acceptedNoticeDays);
+  const etpValue = noticeDays * hrsPerDay * effRate;
+
+  let etpTax = 0;
+  if (etpValue > 0) {
+    const capped = Math.min(etpValue, etpCap);
+    const excess = Math.max(0, etpValue - etpCap);
+    etpTax = capped * etpRate + excess * topRate;
+  }
+
+  const totalGross = totalLeavePayout + etpValue;
+  const totalTax = taxWithheld + etpTax;
+  const netPayout = totalGross - totalTax;
+  const netAtMarginal = totalLeavePayout * (1 - margRate) + etpValue - etpTax;
+
+  const superLost = totalLeavePayout * (state.superRate / 100);
+
+  const extraAccrualHours = Math.max(0, Math.min(annualDays, noticeDaysRequired)) * (state.weeklyHours * 4 / 260);
   const runDownHours = output.annualHours + extraAccrualHours;
   const runDownValue = runDownHours * effRate;
 
-  return { coverage, noticeDaysRequired, availableDays, payoutValue, payoutSuperLost, runDownValue, extraAccrualHours, leaveLoading: state.leaveLoading };
+  const juneIncome = state.estAnnualIncome + totalLeavePayout;
+  const julyIncome = totalLeavePayout;
+  const juneTaxOnExtra = totalLeavePayout * totalMarginalRate(juneIncome);
+  const julyTaxOnExtra = totalLeavePayout * totalMarginalRate(julyIncome);
+  const juneNet = totalLeavePayout - juneTaxOnExtra;
+  const julyNet = totalLeavePayout - julyTaxOnExtra;
+  const timingBenefit = julyNet - juneNet;
+
+  return {
+    coverage, noticeDaysRequired, availableDays: annualDays,
+    annualPayout, lslPayout, totalLeavePayout,
+    withholdingRate, taxWithheld, margRate, taxActual, refundDue,
+    under60, etpRate, etpValue, etpTax, totalGross, totalTax, netPayout, netAtMarginal,
+    superLost, extraAccrualHours, runDownValue, leaveLoading: state.leaveLoading,
+    juneNet, julyNet, timingBenefit, lslHours
+  };
 }
 
 function renderStrategies(result) {
@@ -174,14 +233,34 @@ function renderStrategies(result) {
     el.innerHTML = 'Enable exit strategy analysis to compare payout vs run-down.';
     return;
   }
-  const diff = result.runDownValue - (result.payoutValue - result.payoutSuperLost);
+  const diff = result.runDownValue - result.netPayout;
   const winner = diff >= 0 ? 'Run-down strategy leads' : 'Lump-sum payout leads';
+  const etpNote = result.etpValue > 0 ? `Payment in lieu (${result.under60 ? '<60' : '≥60'}): $${result.etpValue.toFixed(2)} gross, $${result.etpTax.toFixed(2)} tax` : '';
+  const timFmt = (v) => (v >= 0 ? '+' : '') + v.toFixed(2);
   el.innerHTML = `
-    <b>Notice Coverage:</b> ${result.coverage}<br>
-    <b>Available leave days:</b> ${result.availableDays.toFixed(1)} / ${result.noticeDaysRequired.toFixed(1)} needed<br>
-    <b>Lump Sum:</b> $${result.payoutValue.toFixed(2)}${result.leaveLoading > 0 ? ` (incl. ${result.leaveLoading}% loading)` : ''} (super opportunity loss: $${result.payoutSuperLost.toFixed(2)})<br>
-    <b>Run-Down:</b> $${result.runDownValue.toFixed(2)} (includes +${result.extraAccrualHours.toFixed(2)} hrs accrued)<br>
-    <b>Result:</b> ${winner} by $${Math.abs(diff).toFixed(2)}
+    <b>Leave Payout Summary</b><br>
+    Annual leave: $${result.annualPayout.toFixed(2)}${result.leaveLoading > 0 ? ` (incl. ${result.leaveLoading}% loading)` : ''}<br>
+    LSL: $${result.lslPayout.toFixed(2)} (${result.lslHours.toFixed(2)} hrs)<br>
+    <b>Total leave payout:</b> $${result.totalLeavePayout.toFixed(2)}<br>
+    <br>
+    <b>Tax on Leave Payout</b><br>
+    Withholding (${(result.withholdingRate * 100).toFixed(0)}%): −$${result.taxWithheld.toFixed(2)}<br>
+    EOFY reconciliation at ${(result.margRate * 100).toFixed(0)}% marginal rate:<br>
+    ${result.refundDue >= 0 ? `Refund due: +$${result.refundDue.toFixed(2)}` : `Additional tax: −$${Math.abs(result.refundDue).toFixed(2)}`}<br>
+    Net after tax: <b>$${result.netPayout.toFixed(2)}</b><br>
+    <br>
+    ${etpNote ? etpNote + '<br><br>' : ''}
+    <b>Super notice:</b> No super guarantee paid on leave payout (opportunity loss: $${result.superLost.toFixed(2)})<br>
+    <br>
+    <b>Timing Strategy</b><br>
+    If resigning in <b>June</b> (income stacked): net ≈ <b>$${result.juneNet.toFixed(2)}</b><br>
+    If resigning in <b>July</b> (lower FY income): net ≈ <b>$${result.julyNet.toFixed(2)}</b><br>
+    <b>Timing benefit: $${result.timingBenefit > 0 ? '+' : ''}$${result.timingBenefit.toFixed(2)}</b> by waiting to July<br>
+    <br>
+    <b>Run-Down vs Payout</b><br>
+    Run-down value: $${result.runDownValue.toFixed(2)} (incl. +${result.extraAccrualHours.toFixed(2)} hrs)<br>
+    Net payout: $${result.netPayout.toFixed(2)}<br>
+    <b>${winner}</b> by $${Math.abs(diff).toFixed(2)}
   `;
 }
 
@@ -338,7 +417,9 @@ function saveToDB() {
     acceptedNoticeDays: Number(document.getElementById('acceptedNoticeDays')?.value || 0),
     hourlyRate: Number(document.getElementById('hourlyRate')?.value || 0),
     superRate: Number(document.getElementById('superRate')?.value || 11.5),
-    leaveLoading: Number(document.getElementById('leaveLoading')?.value || 0)
+    leaveLoading: Number(document.getElementById('leaveLoading')?.value || 0),
+    empAge: Number(document.getElementById('empAge')?.value || 35),
+    estAnnualIncome: Number(document.getElementById('estAnnualIncome')?.value || 0)
   };
   db.transaction('userData', 'readwrite').objectStore('userData').put(profile, 'profile');
 }
@@ -362,6 +443,8 @@ function loadFromDB() {
     if (document.getElementById('hourlyRate')) document.getElementById('hourlyRate').value = d.hourlyRate ?? 35;
     if (document.getElementById('superRate')) document.getElementById('superRate').value = d.superRate ?? 11.5;
     if (document.getElementById('leaveLoading')) document.getElementById('leaveLoading').value = d.leaveLoading ?? 0;
+    if (document.getElementById('empAge')) document.getElementById('empAge').value = d.empAge ?? 35;
+    if (document.getElementById('estAnnualIncome')) document.getElementById('estAnnualIncome').value = d.estAnnualIncome ?? 0;
     if (d.history) { document.getElementById('historyList').innerHTML = ''; d.history.forEach(appendHistoryDOM); }
     toggleMode();
   };
@@ -473,7 +556,7 @@ function collectAllData() {
   const projectDate = parseDropdownDate('project');
   const targetLastDay = parseDropdownDate('target');
   return {
-    exportVersion: 1,
+    exportVersion: 2,
     exportedAt: new Date().toISOString(),
     hireDate: hireDate ? hireDate.toISOString() : null,
     calcMode: document.getElementById('calcMode')?.value || 'startDate',
@@ -499,6 +582,8 @@ function collectAllData() {
     hourlyRate: Number(document.getElementById('hourlyRate')?.value || 0),
     superRate: Number(document.getElementById('superRate')?.value || 11.5),
     leaveLoading: Number(document.getElementById('leaveLoading')?.value || 0),
+    empAge: Number(document.getElementById('empAge')?.value || 35),
+    estAnnualIncome: Number(document.getElementById('estAnnualIncome')?.value || 0),
     holidays: nswHolidays
   };
 }
@@ -554,6 +639,8 @@ function applyImportedData(data) {
   if (document.getElementById('hourlyRate')) document.getElementById('hourlyRate').value = data.hourlyRate ?? 35;
   if (document.getElementById('superRate')) document.getElementById('superRate').value = data.superRate ?? 11.5;
   if (document.getElementById('leaveLoading')) document.getElementById('leaveLoading').value = data.leaveLoading ?? 0;
+  if (document.getElementById('empAge')) document.getElementById('empAge').value = data.empAge ?? 35;
+  if (document.getElementById('estAnnualIncome')) document.getElementById('estAnnualIncome').value = data.estAnnualIncome ?? 0;
   document.getElementById('historyList').innerHTML = '';
   if (data.history) data.history.forEach(h => appendHistoryDOM(h));
   if (data.holidays) { nswHolidays = data.holidays; if (db) db.transaction('userData', 'readwrite').objectStore('userData').put(nswHolidays, 'holidays'); }
