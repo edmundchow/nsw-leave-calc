@@ -13,7 +13,7 @@
 |---|---|---|
 | `index.html` | 220+ | UI shell with inline CSS; 6 collapsible card sections |
 | `app.js` | 400+ | All logic: calculations, persistence, collapsible sections |
-| `sw.js` | 55 | Service worker (cache-first with background refresh, version `v24` — bump when app files change) |
+| `sw.js` | 55 | Service worker (cache-first with background refresh, version `v25` — bump when app files change) |
 | `tax-rates.json` | 20 | Tax brackets and withholding rates (fetched on load, cached by SW) |
 | `manifest.json` | 15 | PWA install manifest |
 | `style.css` | 53 | External styles (used in addition to inline styles) |

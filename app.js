@@ -449,29 +449,33 @@ function saveToDB() {
 }
 
 function loadFromDB() {
-  db.transaction('userData', 'readonly').objectStore('userData').get('profile').onsuccess = (e) => {
-    const d = e.target.result; if (!d) return;
-    setDropdownDate('hire', d.hireDate);
-    setDropdownDate('balance', d.balanceDate);
-    if (document.getElementById('calcMode')) document.getElementById('calcMode').value = d.calcMode || 'startDate';
-    if (document.getElementById('weeklyHours')) document.getElementById('weeklyHours').value = d.weeklyHours || 38;
-    if (document.getElementById('startBalance')) document.getElementById('startBalance').value = d.startBalance || 0;
-    if (document.getElementById('roster')) d.roster.forEach((c, i) => { const el = document.getElementById(DAY_IDS[i]); if (el) el.checked = c; });
-    if (document.getElementById('casualLoading')) document.getElementById('casualLoading').checked = !!d.casualLoading;
-    if (document.getElementById('enableProjectDate')) document.getElementById('enableProjectDate').checked = !!d.enableProjectDate;
-    setDropdownDate('project', d.projectDate);
-    if (document.getElementById('resignationMode')) document.getElementById('resignationMode').checked = !!d.resignationMode;
-    setDropdownDate('target', d.targetLastDay);
-    if (document.getElementById('noticeWeeks')) document.getElementById('noticeWeeks').value = d.noticeWeeks ?? 2;
-    if (document.getElementById('acceptedNoticeDays')) document.getElementById('acceptedNoticeDays').value = d.acceptedNoticeDays ?? 0;
-    if (document.getElementById('hourlyRate')) document.getElementById('hourlyRate').value = d.hourlyRate ?? 35;
-    if (document.getElementById('superRate')) document.getElementById('superRate').value = d.superRate ?? 11.5;
-    if (document.getElementById('leaveLoading')) document.getElementById('leaveLoading').value = d.leaveLoading ?? 0;
-    if (document.getElementById('empAge')) document.getElementById('empAge').value = d.empAge ?? 35;
-    if (document.getElementById('estAnnualIncome')) document.getElementById('estAnnualIncome').value = d.estAnnualIncome ?? 0;
-    if (d.history) { document.getElementById('historyList').innerHTML = ''; d.history.forEach(appendHistoryDOM); }
-    toggleMode();
-  };
+  return new Promise((resolve) => {
+    db.transaction('userData', 'readonly').objectStore('userData').get('profile').onsuccess = (e) => {
+      const d = e.target.result;
+      if (!d) { resolve(); return; }
+      setDropdownDate('hire', d.hireDate);
+      setDropdownDate('balance', d.balanceDate);
+      if (document.getElementById('calcMode')) document.getElementById('calcMode').value = d.calcMode || 'startDate';
+      if (document.getElementById('weeklyHours')) document.getElementById('weeklyHours').value = d.weeklyHours || 38;
+      if (document.getElementById('startBalance')) document.getElementById('startBalance').value = d.startBalance || 0;
+      if (d.roster) d.roster.forEach((c, i) => { const el = document.getElementById(DAY_IDS[i]); if (el) el.checked = c; });
+      if (document.getElementById('casualLoading')) document.getElementById('casualLoading').checked = !!d.casualLoading;
+      if (document.getElementById('enableProjectDate')) document.getElementById('enableProjectDate').checked = !!d.enableProjectDate;
+      setDropdownDate('project', d.projectDate);
+      if (document.getElementById('resignationMode')) document.getElementById('resignationMode').checked = !!d.resignationMode;
+      setDropdownDate('target', d.targetLastDay);
+      if (document.getElementById('noticeWeeks')) document.getElementById('noticeWeeks').value = d.noticeWeeks ?? 2;
+      if (document.getElementById('acceptedNoticeDays')) document.getElementById('acceptedNoticeDays').value = d.acceptedNoticeDays ?? 0;
+      if (document.getElementById('hourlyRate')) document.getElementById('hourlyRate').value = d.hourlyRate ?? 35;
+      if (document.getElementById('superRate')) document.getElementById('superRate').value = d.superRate ?? 11.5;
+      if (document.getElementById('leaveLoading')) document.getElementById('leaveLoading').value = d.leaveLoading ?? 0;
+      if (document.getElementById('empAge')) document.getElementById('empAge').value = d.empAge ?? 35;
+      if (document.getElementById('estAnnualIncome')) document.getElementById('estAnnualIncome').value = d.estAnnualIncome ?? 0;
+      if (d.history) { document.getElementById('historyList').innerHTML = ''; d.history.forEach(appendHistoryDOM); }
+      toggleMode();
+      resolve();
+    };
+  });
 }
 
 function addHistoryEntry() {
@@ -727,7 +731,7 @@ dbRequest.onsuccess = async (e) => {
   initializeUI();
   await fetchTaxRates();
   fetchHolidays();
-  loadFromDB();
+  await loadFromDB();
   calculateLeave();
 };
 
