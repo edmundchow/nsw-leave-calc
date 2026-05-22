@@ -374,7 +374,7 @@ function addHistoryEntry() {
   scheduleRecalculate();
 }
 
-function appendHistoryDOM(h) { const div = document.createElement('div'); div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount; div.dataset.type = h.type || 'annual'; if (h.startDate) div.dataset.start = h.startDate; if (h.endDate) div.dataset.end = h.endDate; const label = h.type === 'lsl' ? 'LSL' : h.type === 'personal' ? 'Personal' : 'AL'; div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs) [${label}]</span><button class="btn-del" onclick="this.parentElement.remove(); scheduleRecalculate();">Delete</button>`; document.getElementById('historyList').appendChild(div); }
+function appendHistoryDOM(h) { const div = document.createElement('div'); div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount; div.dataset.type = h.type || 'annual'; if (h.startDate) div.dataset.start = h.startDate; if (h.endDate) div.dataset.end = h.endDate; const label = h.type === 'lsl' ? 'LSL' : h.type === 'personal' ? 'Personal' : 'AL'; const start = h.startDate ? fmtDate(new Date(h.startDate)) : ''; const end = h.endDate ? fmtDate(new Date(h.endDate)) : ''; const dates = start && end ? `${start} – ${end}` : ''; div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs) [${label}]${dates ? '<br><small style="color:#666;">' + dates + '</small>' : ''}</span><button class="btn-del" onclick="this.parentElement.remove(); scheduleRecalculate();">Delete</button>`; document.getElementById('historyList').appendChild(div); }
 
 function calculateWhatIf() {
   const el = document.getElementById('whatifResults');
