@@ -4,6 +4,17 @@ const MILLIS_PER_DAY = 1000 * 60 * 60 * 24;
 let nswHolidays = [];
 let db;
 let calcTimer;
+let taxRates = {
+  version: 1, medicareLevy: 0.02, leaveWithholdingRate: 0.32,
+  brackets: [
+    { from: 0, to: 18200, rate: 0 },
+    { from: 18201, to: 45000, rate: 0.16 },
+    { from: 45001, to: 135000, rate: 0.30 },
+    { from: 135001, to: 190000, rate: 0.37 },
+    { from: 190001, to: null, rate: 0.45 }
+  ],
+  etp: { cap: 235000, rateUnder60: 0.32, rateOver60: 0.17, excessRate: 0.47 }
+};
 
 function showDialog(msg) {
   const existing = document.getElementById('oc-dialog-overlay');
@@ -158,7 +169,20 @@ function marginalTaxRate(income) {
   return 0.45;
 }
 function totalMarginalRate(income) {
-  return marginalTaxRate(income) + 0.02;
+  return marginalTaxRate(income) + taxRates.medicareLevy;
+}
+
+async function fetchTaxRates() {
+  try {
+    const res = await fetch('./tax-rates.json');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.version && data.brackets && data.version > (taxRates.version || 0)) {
+      taxRates = data;
+    }
+  } catch {
+    // use fallback hardcoded rates
+  }
 }
 
 function calculateExitStrategies(state, output) {
@@ -178,15 +202,15 @@ function calculateExitStrategies(state, output) {
   const totalLeavePayout = annualPayout + lslPayout;
 
   const margRate = totalMarginalRate(state.estAnnualIncome);
-  const withholdingRate = 0.32;
+  const withholdingRate = taxRates.leaveWithholdingRate || 0.32;
   const taxWithheld = totalLeavePayout * withholdingRate;
   const taxActual = totalLeavePayout * margRate;
   const refundDue = taxWithheld - taxActual;
 
-  const etpCap = 235000;
+  const etpCap = taxRates.etp?.cap || 235000;
   const under60 = state.empAge < 60;
-  const etpRate = under60 ? 0.32 : 0.17;
-  const topRate = 0.47;
+  const etpRate = under60 ? (taxRates.etp?.rateUnder60 || 0.32) : (taxRates.etp?.rateOver60 || 0.17);
+  const topRate = taxRates.etp?.excessRate || 0.47;
   const noticeDays = Math.max(0, state.noticeWeeks * workingDays - state.acceptedNoticeDays);
   const etpValue = noticeDays * hrsPerDay * effRate;
 
@@ -698,16 +722,18 @@ function initializeUI() {
 
 const dbRequest = indexedDB.open('NSWLeaveTracker', 1);
 dbRequest.onupgradeneeded = (e) => e.target.result.createObjectStore('userData');
-dbRequest.onsuccess = (e) => {
+dbRequest.onsuccess = async (e) => {
   db = e.target.result;
   initializeUI();
+  await fetchTaxRates();
   fetchHolidays();
   loadFromDB();
   calculateLeave();
 };
 
-dbRequest.onerror = () => {
+dbRequest.onerror = async () => {
   initializeUI();
+  await fetchTaxRates();
   fetchHolidays();
   calculateLeave();
 };

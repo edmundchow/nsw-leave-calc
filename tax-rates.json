@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "medicareLevy": 0.02,
+  "leaveWithholdingRate": 0.32,
+  "brackets": [
+    { "from": 0, "to": 18200, "rate": 0 },
+    { "from": 18201, "to": 45000, "rate": 0.16 },
+    { "from": 45001, "to": 135000, "rate": 0.30 },
+    { "from": 135001, "to": 190000, "rate": 0.37 },
+    { "from": 190001, "to": null, "rate": 0.45 }
+  ],
+  "etp": {
+    "cap": 235000,
+    "rateUnder60": 0.32,
+    "rateOver60": 0.17,
+    "excessRate": 0.47
+  }
+}
