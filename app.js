@@ -482,9 +482,11 @@ function loadFromDB() {
         });
         deduped.forEach(appendHistoryDOM);
         if (deduped.length !== d.history.length) {
-          db.transaction('userData', 'readwrite').objectStore('userData').put(
-            { ...d, history: deduped }, 'profile'
-          );
+          const tx = db.transaction('userData', 'readwrite');
+          tx.objectStore('userData').put({ ...d, history: deduped }, 'profile');
+          tx.oncomplete = () => { toggleMode(); resolve(); };
+          tx.onerror = () => { toggleMode(); resolve(); };
+          return;
         }
       }
       toggleMode();
