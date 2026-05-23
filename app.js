@@ -4,6 +4,7 @@ const MILLIS_PER_DAY = 1000 * 60 * 60 * 24;
 let nswHolidays = [];
 let db;
 let calcTimer;
+let historyCache = [];
 let taxRates = {
   version: 1, medicareLevy: 0.02, leaveWithholdingRate: 0.32,
   brackets: [
@@ -70,7 +71,6 @@ function setDropdownDate(prefix, dateStr) {
 }
 
 function getState() {
-  const items = Array.from(document.querySelectorAll('.history-item'));
   const mode = document.getElementById('calcMode')?.value || 'startDate';
   const balanceDate = parseDropdownDate('balance');
   const balanceDateMs = balanceDate ? balanceDate.getTime() : 0;
@@ -81,17 +81,17 @@ function getState() {
     weeklyHours: Number(document.getElementById('weeklyHours')?.value || 0),
     startBalance: Number(document.getElementById('startBalance')?.value || 0),
     roster: DAY_IDS.map(id => !!document.getElementById(id)?.checked),
-    annualTakenHours: items.reduce((s, el) => {
-      if (el.dataset.type && el.dataset.type !== 'annual') return s;
-      const amount = Number(el.dataset.amount || 0);
-      if (mode === 'knownBalance' && el.dataset.end) {
-        const endDate = new Date(el.dataset.end);
+    annualTakenHours: historyCache.reduce((s, h) => {
+      if (h.type && h.type !== 'annual') return s;
+      const amount = Number(h.amount || 0);
+      if (mode === 'knownBalance' && h.endDate) {
+        const endDate = new Date(h.endDate);
         if (isValidDate(endDate) && endDate.getTime() <= balanceDateMs) return s;
       }
       return s + amount;
     }, 0),
-    lslTakenHours: items.reduce((s, el) => s + (el.dataset.type === 'lsl' ? Number(el.dataset.amount || 0) : 0), 0),
-    personalTakenHours: items.reduce((s, el) => s + (el.dataset.type === 'personal' ? Number(el.dataset.amount || 0) : 0), 0),
+    lslTakenHours: historyCache.reduce((s, h) => s + (h.type === 'lsl' ? Number(h.amount || 0) : 0), 0),
+    personalTakenHours: historyCache.reduce((s, h) => s + (h.type === 'personal' ? Number(h.amount || 0) : 0), 0),
     casualLoading: !!document.getElementById('casualLoading')?.checked,
     enableProjectDate: !!document.getElementById('enableProjectDate')?.checked,
     projectDate: parseDropdownDate('project'),
@@ -422,12 +422,6 @@ function toggleProjectDate() {
 
 function saveToDB() {
   if (!db) return;
-  const seen = new Set();
-  document.querySelectorAll('.history-item').forEach(el => {
-    const key = `${el.dataset.start}|${el.dataset.end}|${el.dataset.type || 'annual'}|${el.dataset.amount}`;
-    if (seen.has(key)) { el.remove(); return; }
-    seen.add(key);
-  });
   const hireDate = parseDropdownDate('hire');
   const balanceDate = parseDropdownDate('balance');
   const profile = {
@@ -437,7 +431,7 @@ function saveToDB() {
     balanceDate: balanceDate ? balanceDate.toISOString() : null,
     startBalance: document.getElementById('startBalance')?.value || 0,
     roster: DAY_IDS.map(id => !!document.getElementById(id)?.checked),
-    history: Array.from(document.querySelectorAll('.history-item')).map(item => ({ id: item.dataset.id, note: item.querySelector('.note-text').innerText, amount: Number(item.dataset.amount), type: item.dataset.type, startDate: item.dataset.start || '', endDate: item.dataset.end || '' })),
+    history: historyCache,
     casualLoading: !!document.getElementById('casualLoading')?.checked,
     enableProjectDate: !!document.getElementById('enableProjectDate')?.checked,
     projectDate: parseDropdownDate('project')?.toISOString() || null,
@@ -458,7 +452,7 @@ function loadFromDB() {
   return new Promise((resolve) => {
     db.transaction('userData', 'readonly').objectStore('userData').get('profile').onsuccess = (e) => {
       const d = e.target.result;
-      if (!d) { resolve(); return; }
+      if (!d) { historyCache = []; resolve(); return; }
       setDropdownDate('hire', d.hireDate);
       setDropdownDate('balance', d.balanceDate);
       if (document.getElementById('calcMode')) document.getElementById('calcMode').value = d.calcMode || 'startDate';
@@ -486,6 +480,7 @@ function loadFromDB() {
           seen.add(key);
           return true;
         });
+        historyCache = deduped;
         deduped.forEach(appendHistoryDOM);
         if (deduped.length !== d.history.length) {
           const tx = db.transaction('userData', 'readwrite');
@@ -494,6 +489,8 @@ function loadFromDB() {
           tx.onerror = () => { toggleMode(); resolve(); };
           return;
         }
+      } else {
+        historyCache = [];
       }
       toggleMode();
       resolve();
@@ -508,22 +505,20 @@ function addHistoryEntry() {
   const workingDays = DAY_IDS.filter(id => document.getElementById(id)?.checked).length;
   if (!start || !end || workingDays === 0) return;
   if (end < start) { showDialog('End date must be on or after start date.'); return; }
-  const items = Array.from(document.querySelectorAll('.history-item'));
   const sMs = start.getTime(), eMs = end.getTime();
-  const conflict = items.find(el => {
-    const es = el.dataset.start ? new Date(el.dataset.start).getTime() : 0;
-    const ee = el.dataset.end ? new Date(el.dataset.end).getTime() : 0;
-    if (!es || !ee) return false;
+  const conflict = historyCache.find(h => {
+    if (!h.startDate || !h.endDate) return false;
+    const es = new Date(h.startDate).getTime();
+    const ee = new Date(h.endDate).getTime();
     return sMs <= ee && es <= eMs;
   });
   if (conflict) {
-    const cn = conflict.querySelector('.note-text')?.innerText || 'Leave';
-    showDialog(`This period overlaps with an existing entry: "${cn}". Delete the existing entry first or adjust the dates.`);
+    showDialog(`This period overlaps with an existing entry: "${conflict.note}". Delete the existing entry first or adjust the dates.`);
     return;
   }
   const type = document.querySelector('input[name="leaveType"]:checked')?.value || 'annual';
   const sISO = start.toISOString(), eISO = end.toISOString();
-  if (items.some(el => el.dataset.start === sISO && el.dataset.end === eISO && (el.dataset.type || 'annual') === type)) {
+  if (historyCache.some(h => h.startDate === sISO && h.endDate === eISO && (h.type || 'annual') === type)) {
     showDialog('An entry with these exact dates and type already exists.');
     return;
   }
@@ -536,11 +531,21 @@ function addHistoryEntry() {
     showDialog('The selected period has no working days. Check your roster settings (Mon-Fri by default) or choose different dates.');
     return;
   }
-  appendHistoryDOM({ id: Date.now(), note: document.getElementById('leaveNote').value || 'Leave', amount: total, type, startDate: sISO, endDate: eISO });
+  const entry = { id: Date.now(), note: document.getElementById('leaveNote').value || 'Leave', amount: total, type, startDate: sISO, endDate: eISO };
+  historyCache.push(entry);
+  appendHistoryDOM(entry);
   scheduleRecalculate();
 }
 
-function appendHistoryDOM(h) { const div = document.createElement('div'); div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount; div.dataset.type = h.type || 'annual'; if (h.startDate) div.dataset.start = h.startDate; if (h.endDate) div.dataset.end = h.endDate; const label = h.type === 'lsl' ? 'LSL' : h.type === 'personal' ? 'Personal' : 'AL'; const start = h.startDate ? fmtDate(new Date(h.startDate)) : ''; const end = h.endDate ? fmtDate(new Date(h.endDate)) : ''; const dates = start && end ? `${start} – ${end}` : ''; div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs) [${label}]${dates ? '<br><small style="color:#666;">' + dates + '</small>' : ''}</span><button class="btn-del" onclick="this.parentElement.remove(); scheduleRecalculate();">Delete</button>`; document.getElementById('historyList').appendChild(div); }
+function appendHistoryDOM(h) { const div = document.createElement('div'); div.className = 'history-item'; div.dataset.id = h.id; div.dataset.amount = h.amount; div.dataset.type = h.type || 'annual'; if (h.startDate) div.dataset.start = h.startDate; if (h.endDate) div.dataset.end = h.endDate; const label = h.type === 'lsl' ? 'LSL' : h.type === 'personal' ? 'Personal' : 'AL'; const start = h.startDate ? fmtDate(new Date(h.startDate)) : ''; const end = h.endDate ? fmtDate(new Date(h.endDate)) : ''; const dates = start && end ? `${start} – ${end}` : ''; div.innerHTML = `<span class="note-text">${h.note} (${h.amount.toFixed(1)} hrs) [${label}]${dates ? '<br><small style="color:#666;">' + dates + '</small>' : ''}</span><button class="btn-del" onclick="deleteHistoryEntry(this)">Delete</button>`; document.getElementById('historyList').appendChild(div); }
+
+function deleteHistoryEntry(btn) {
+  const el = btn.parentElement;
+  const idx = Array.from(document.querySelectorAll('.history-item')).indexOf(el);
+  if (idx >= 0) historyCache.splice(idx, 1);
+  el.remove();
+  scheduleRecalculate();
+}
 
 function calculateWhatIf() {
   const el = document.getElementById('whatifResults');
@@ -624,14 +629,7 @@ function collectAllData() {
     balanceDate: balanceDate ? balanceDate.toISOString() : null,
     startBalance: document.getElementById('startBalance')?.value || 0,
     roster: DAY_IDS.map(id => !!document.getElementById(id)?.checked),
-    history: Array.from(document.querySelectorAll('.history-item')).map(item => ({
-      id: item.dataset.id,
-      note: item.querySelector('.note-text').innerText,
-      amount: Number(item.dataset.amount),
-      type: item.dataset.type,
-      startDate: item.dataset.start || '',
-      endDate: item.dataset.end || ''
-    })),
+    history: historyCache,
     casualLoading: !!document.getElementById('casualLoading')?.checked,
     enableProjectDate: !!document.getElementById('enableProjectDate')?.checked,
     projectDate: projectDate ? projectDate.toISOString() : null,
@@ -702,7 +700,8 @@ function applyImportedData(data) {
   if (document.getElementById('empAge')) document.getElementById('empAge').value = data.empAge ?? 35;
   if (document.getElementById('estAnnualIncome')) document.getElementById('estAnnualIncome').value = data.estAnnualIncome ?? 0;
   document.getElementById('historyList').innerHTML = '';
-  if (data.history) data.history.forEach(h => appendHistoryDOM(h));
+  historyCache = data.history || [];
+  historyCache.forEach(h => appendHistoryDOM(h));
   if (data.holidays) { nswHolidays = data.holidays; if (db) db.transaction('userData', 'readwrite').objectStore('userData').put(nswHolidays, 'holidays'); }
   toggleMode();
   scheduleRecalculate();
@@ -711,6 +710,7 @@ function applyImportedData(data) {
 
 async function clearAllData() {
   if (!confirm('Clear all saved data (hire date, history, settings)? This cannot be undone.')) return;
+  historyCache = [];
   if (db) {
     await new Promise((resolve, reject) => {
       const tx = db.transaction('userData', 'readwrite');
