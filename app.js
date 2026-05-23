@@ -690,6 +690,23 @@ function applyImportedData(data) {
   saveToDB();
 }
 
+async function clearAllData() {
+  if (!confirm('Clear all saved data (hire date, history, settings)? This cannot be undone.')) return;
+  if (db) {
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('userData', 'readwrite');
+      tx.objectStore('userData').clear();
+      tx.oncomplete = resolve;
+      tx.onerror = reject;
+    });
+  }
+  if ('caches' in window) {
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k)));
+  }
+  window.location.reload();
+}
+
 function initCollapsibleSections() {
   document.querySelectorAll('.card').forEach(card => {
     const title = card.querySelector('.section-title');
