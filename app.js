@@ -758,8 +758,13 @@ function initializeUI() {
   populateDropdowns('whatifStart', curYear - 1, curYear + 2);
   populateDropdowns('whatifEnd', curYear - 1, curYear + 2);
   document.getElementById('optDay').value = 31;
-  document.getElementById('targetDay').value = new Date().getDate();
-  document.getElementById('targetMonth').value = new Date().getMonth();
+  const today = new Date();
+  document.getElementById('leaveStartMonth').value = today.getMonth();
+  document.getElementById('leaveStartYear').value = curYear;
+  document.getElementById('leaveEndMonth').value = today.getMonth();
+  document.getElementById('leaveEndYear').value = curYear;
+  document.getElementById('targetDay').value = today.getDate();
+  document.getElementById('targetMonth').value = today.getMonth();
   document.getElementById('targetYear').value = curYear;
   document.getElementById('optMonth').value = 11;
   document.getElementById('optYear').value = curYear + 1;
