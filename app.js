@@ -474,12 +474,18 @@ function loadFromDB() {
       if (d.history) {
         document.getElementById('historyList').innerHTML = '';
         const seen = new Set();
-        d.history.filter(h => {
+        const deduped = d.history.filter(h => {
           const key = `${h.startDate}|${h.endDate}|${h.type || 'annual'}|${h.amount}`;
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
-        }).forEach(appendHistoryDOM);
+        });
+        deduped.forEach(appendHistoryDOM);
+        if (deduped.length !== d.history.length) {
+          db.transaction('userData', 'readwrite').objectStore('userData').put(
+            { ...d, history: deduped }, 'profile'
+          );
+        }
       }
       toggleMode();
       resolve();
@@ -505,6 +511,11 @@ function addHistoryEntry() {
   if (conflict) {
     const cn = conflict.querySelector('.note-text')?.innerText || 'Leave';
     showDialog(`This period overlaps with an existing entry: "${cn}". Delete the existing entry first or adjust the dates.`);
+    return;
+  }
+  const sISO = start.toISOString(), eISO = end.toISOString();
+  if (items.some(el => el.dataset.start === sISO && el.dataset.end === eISO && (el.dataset.type || 'annual') === type)) {
+    showDialog('An entry with these exact dates and type already exists.');
     return;
   }
   const daily = weeklyHours / workingDays;
