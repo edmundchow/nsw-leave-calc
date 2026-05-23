@@ -474,13 +474,12 @@ function loadFromDB() {
       if (d.history) {
         document.getElementById('historyList').innerHTML = '';
         const seen = new Set();
-        const deduped = d.history.filter(h => {
-          if (!h.id) return true;
-          if (seen.has(h.id)) return false;
-          seen.add(h.id);
+        d.history.filter(h => {
+          const key = `${h.startDate}|${h.endDate}|${h.type || 'annual'}|${h.amount}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
           return true;
-        });
-        deduped.forEach(appendHistoryDOM);
+        }).forEach(appendHistoryDOM);
       }
       toggleMode();
       resolve();
@@ -512,6 +511,10 @@ function addHistoryEntry() {
   let total = 0;
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     if (document.getElementById(DAY_IDS[d.getDay()])?.checked && !nswHolidays.includes(d.toISOString().split('T')[0])) total += daily;
+  }
+  if (total === 0) {
+    showDialog('The selected period has no working days. Check your roster settings (Mon-Fri by default) or choose different dates.');
+    return;
   }
   const type = document.querySelector('input[name="leaveType"]:checked')?.value || 'annual';
   appendHistoryDOM({ id: Date.now(), note: document.getElementById('leaveNote').value || 'Leave', amount: total, type, startDate: start.toISOString(), endDate: end.toISOString() });
