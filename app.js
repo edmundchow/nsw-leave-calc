@@ -422,6 +422,12 @@ function toggleProjectDate() {
 
 function saveToDB() {
   if (!db) return;
+  const seen = new Set();
+  document.querySelectorAll('.history-item').forEach(el => {
+    const key = `${el.dataset.start}|${el.dataset.end}|${el.dataset.type || 'annual'}|${el.dataset.amount}`;
+    if (seen.has(key)) { el.remove(); return; }
+    seen.add(key);
+  });
   const hireDate = parseDropdownDate('hire');
   const balanceDate = parseDropdownDate('balance');
   const profile = {
