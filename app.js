@@ -515,6 +515,7 @@ function addHistoryEntry() {
     showDialog(`This period overlaps with an existing entry: "${cn}". Delete the existing entry first or adjust the dates.`);
     return;
   }
+  const type = document.querySelector('input[name="leaveType"]:checked')?.value || 'annual';
   const sISO = start.toISOString(), eISO = end.toISOString();
   if (items.some(el => el.dataset.start === sISO && el.dataset.end === eISO && (el.dataset.type || 'annual') === type)) {
     showDialog('An entry with these exact dates and type already exists.');
@@ -529,8 +530,7 @@ function addHistoryEntry() {
     showDialog('The selected period has no working days. Check your roster settings (Mon-Fri by default) or choose different dates.');
     return;
   }
-  const type = document.querySelector('input[name="leaveType"]:checked')?.value || 'annual';
-  appendHistoryDOM({ id: Date.now(), note: document.getElementById('leaveNote').value || 'Leave', amount: total, type, startDate: start.toISOString(), endDate: end.toISOString() });
+  appendHistoryDOM({ id: Date.now(), note: document.getElementById('leaveNote').value || 'Leave', amount: total, type, startDate: sISO, endDate: eISO });
   scheduleRecalculate();
 }
 
